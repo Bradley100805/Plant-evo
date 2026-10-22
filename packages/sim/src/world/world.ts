@@ -867,8 +867,11 @@ export class World {
       this.generation,
     );
     for (let i = 0; i < k; i++) {
-      this.genomes[this.offset(occupied[i], 0) + locus] = id;
-      this.genomes[this.offset(occupied[i], 1) + locus] = id;
+      const c = occupied[i];
+      // The mutation arises in one genome copy: the gametophyte's (copy 0). Copy 1 mirrors it
+      // unless the cell holds a perennating sporophyte, whose second copy is its father's.
+      this.genomes[this.offset(c, 0) + locus] = id;
+      if (this.perennateS[c] === 0) this.genomes[this.offset(c, 1) + locus] = id;
     }
     return id;
   }

@@ -53,6 +53,7 @@ function TraitHistory({ reports, epochs }: { reports: EpochReport[]; epochs: Epo
     };
   }, [reports]);
   const xMax = Math.max(1, epochOf.length - 1);
+  const at = (x: number) => Math.min(x, epochOf.length - 1);
   return (
     <ChartCard
       title="How your lineage changed"
@@ -69,10 +70,10 @@ function TraitHistory({ reports, epochs }: { reports: EpochReport[]; epochs: Epo
         yLabel="Average trait value"
         ariaLabel="Average values of four key traits across the chapter. The table below lists every trait at the end of each epoch."
         tooltip={(x) => ({
-          title: `Generation ${x + 1} · ${epochs[epochOf[x]].ma} million years ago`,
+          title: `Generation ${at(x) + 1} · ${epochs[epochOf[at(x)]].ma} million years ago`,
           rows: series.map((s, k) => ({
             label: TRAIT_INFO[KEY_TRAITS[k]].label,
-            value: s.values[x].toFixed(2),
+            value: s.values[at(x)].toFixed(2),
             color: s.color,
           })),
         })}

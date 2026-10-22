@@ -17,6 +17,8 @@ export interface SaveInfo {
   phase: Phase;
   epochIndex: number;
   ma: number;
+  /** Epoch reports the player has read; a newer one is shown first on continuing. */
+  seen: number;
 }
 
 interface Record {
@@ -75,6 +77,18 @@ export async function saveInfo(slot: string): Promise<SaveInfo | null> {
     return record?.info ?? null;
   } catch {
     return null;
+  }
+}
+
+/** Changes a save's description without rewriting its snapshot. */
+export async function updateSaveInfo(slot: string, patch: Partial<SaveInfo>): Promise<void> {
+  try {
+    const record = await withStore<Record | undefined>('readonly', (s) => s.get(slot));
+    if (record === undefined) return;
+    const updated: Record = { ...record, info: { ...record.info, ...patch } };
+    await withStore('readwrite', (s) => s.put(updated, slot));
+  } catch {
+    // Nothing to do: storage is unavailable.
   }
 }
 

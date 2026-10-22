@@ -111,6 +111,25 @@ describe('world', () => {
     expect(both).toBeLessThanOrEqual(a + b + 1e-12);
   });
 
+  it('introduces a mutation into one genome copy of a perennial sporophyte', () => {
+    const world = makeWorld('one-copy');
+    const env = buildEnvironment(world.landscape, ordovician);
+    world.seed((c) => env.zone[c] <= 1);
+    world.introduceVariant(T.sporophyte * world.arch.lociPerTrait, 3, world.population);
+    for (let y = 0; y < 8; y++) world.stepYear(env);
+    const { perennateS } = world.snapshot();
+    expect(perennateS.some((p) => p === 1)).toBe(true);
+    const locus = T.cuticle * world.arch.lociPerTrait;
+    const id = world.introduceVariant(locus, 1, world.population);
+    const genomes = world.genomeView;
+    const L = world.loci;
+    for (let c = 0; c < world.cells; c++) {
+      if (world.occupied[c] === 0) continue;
+      expect(genomes[c * 2 * L + locus]).toBe(id);
+      expect(genomes[c * 2 * L + L + locus] === id).toBe(perennateS[c] === 0);
+    }
+  });
+
   it('keeps a custom genome architecture through a snapshot', () => {
     const landscape = new Landscape({ width: 24, height: 12, shoreColumn: 8 });
     const modules = [{ id: 'test', label: 'Test module', loadings: { stature: 0.9 } }];

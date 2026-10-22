@@ -37,6 +37,8 @@ export function ReportPanel({
   const height = recent.reduce((s, p) => s + p.sporophyteHeight, 0) / (recent.length || 1);
   const reached = goals.filter((g) => report.goalsAchieved.includes(g.id));
   const xMax = Math.max(1, report.series.length - 1);
+  // An epoch cut short by extinction can have a single point; keep hover on real data.
+  const at = (x: number) => Math.min(x, report.series.length - 1);
 
   const frequency = useMemo<LineSeries[]>(
     () => [
@@ -115,8 +117,8 @@ export function ReportPanel({
               ariaLabel={`Share of plants carrying the mutation over ${report.series.length} generations. ${fateText(report)}`}
               height={220}
               tooltip={(x) => ({
-                title: `Generation ${x + 1}`,
-                rows: [{ label: 'Carry it', value: `${frequency[0].values[x].toFixed(1)}%` }],
+                title: `Generation ${at(x) + 1}`,
+                rows: [{ label: 'Carry it', value: `${frequency[0].values[at(x)].toFixed(1)}%` }],
               })}
             />
             <button type="button" className="link-button" onClick={() => onInfo('drift')}>
@@ -140,10 +142,10 @@ export function ReportPanel({
             ariaLabel="Share of patches in each zone where plants reproduced, by generation. The table below lists the values."
             height={220}
             tooltip={(x) => ({
-              title: `Generation ${x + 1}`,
+              title: `Generation ${at(x) + 1}`,
               rows: reproduction.series.map((s, z) => ({
                 label: capitalise(ZONES[z]),
-                value: `${s.values[x].toFixed(1)}%`,
+                value: `${s.values[at(x)].toFixed(1)}%`,
                 color: s.color,
               })),
             })}

@@ -67,6 +67,14 @@ describe('Game', () => {
     expect(replayed.variantFrequency).toBe(continued.variantFrequency);
   });
 
+  it('keeps a snapshot fixed while the game continues', () => {
+    const game = Game.create(QUICK.id, 'seed-8');
+    const saved = game.snapshot();
+    game.runEpoch(0);
+    expect(saved.reports).toHaveLength(0);
+    expect(Game.restore(saved).reports).toHaveLength(0);
+  });
+
   it('lets nature choose in Pure mode', () => {
     const game = Game.create(QUICK.id, 'seed-4', { pure: true });
     const expected = game.natureChoice();

@@ -6,7 +6,7 @@ import {
   TRAIT_IDS,
   TRAIT_INFO,
 } from '@plant-evo/sim';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChapterSummary } from './ChapterEnd.tsx';
 import { CodexDialog } from './CodexDialog.tsx';
 import { DraftPanel } from './DraftPanel.tsx';
@@ -16,7 +16,7 @@ import { LandscapeMap, type Overlay } from './LandscapeMap.tsx';
 import { PlantPortrait } from './PlantPortrait.tsx';
 import type { GameView } from './protocol.ts';
 import { ReportPanel } from './ReportPanel.tsx';
-import { AUTOSAVE, readSave, type SaveInfo, saveInfo, writeSave } from './saves.ts';
+import { AUTOSAVE, readSave, type SaveInfo, saveInfo, updateSaveInfo, writeSave } from './saves.ts';
 import { TitleScreen } from './TitleScreen.tsx';
 import { TraitBars } from './TraitBars.tsx';
 import { useGame } from './useGame.ts';
@@ -31,6 +31,7 @@ export function GameApp() {
   const [autosave, setAutosave] = useState<SaveInfo | null>(null);
   // Reports the player has already read; a newer report is shown before the next draft.
   const [seen, setSeen] = useState(0);
+  const seenRef = useRef(seen);
   const [codex, setCodex] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<Overlay>('plants');
   // The game as it stood at the start of the current epoch, for going back after an extinction.
@@ -47,6 +48,7 @@ export function GameApp() {
     void controls.save().then(async (snapshot) => {
       if (!cancelled && snapshot.phase === 'draft') setCheckpoint(snapshot);
       const info = {
+        seen: seenRef.current,
         title: view.title,
         seed: view.seed,
         pure: view.pure,
@@ -63,6 +65,13 @@ export function GameApp() {
     };
   }, [view, controls]);
 
+  // Remember which reports were read, so continuing a save shows an unread report first.
+  const hasGame = view !== null;
+  useEffect(() => {
+    seenRef.current = seen;
+    if (hasGame) void updateSaveInfo(AUTOSAVE, { seen });
+  }, [seen, hasGame]);
+
   const reportCount = view?.reports.length ?? 0;
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -75,15 +84,15 @@ export function GameApp() {
     controls.newGame(seed, pure);
   };
 
-  const load = (snapshot: GameSnapshot) => {
-    setSeen(snapshot.reports.length);
+  const load = (snapshot: GameSnapshot, seenReports = snapshot.reports.length) => {
+    setSeen(Math.min(seenReports, snapshot.reports.length));
     setScreen('game');
     controls.load(snapshot);
   };
 
   const continueAutosave = () => {
-    void readSave(AUTOSAVE).then((snapshot) => {
-      if (snapshot !== null) load(snapshot);
+    void Promise.all([readSave(AUTOSAVE), saveInfo(AUTOSAVE)]).then(([snapshot, info]) => {
+      if (snapshot !== null) load(snapshot, info?.seen);
     });
   };
 

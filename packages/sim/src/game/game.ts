@@ -365,8 +365,9 @@ export class Game {
       pure: this.pure,
       epochIndex: this.epochIndex,
       phase: this.phase,
-      offers: this.offers,
-      reports: this.reports,
+      // Copies, so the snapshot stays a fixed point in time while the game goes on.
+      offers: [...this.offers],
+      reports: [...this.reports],
       achieved: { ...this.achieved },
       world: this.world.snapshot(),
     };

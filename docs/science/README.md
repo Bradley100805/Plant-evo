@@ -9,17 +9,17 @@ Design pillar 2 from the [development plan](../PLAN.md): **every number has a so
 
 ## Chapters
 
-| #   | Chapter                                                 | Status            | Implemented in              | Phase |
-| --- | ------------------------------------------------------- | ----------------- | --------------------------- | ----- |
-| 01  | [Population genetics](01-population-genetics.md)        | v0, needs review  | `packages/sim/src/genetics` | 1     |
-| 02  | [Key innovations timeline](02-innovations-timeline.md)  | v0, dates checked | (content data, later)       | 0 → 7 |
-| 03  | Plant physiology (light, photosynthesis, water, carbon) | Not started       |                             | 2     |
-| 04  | Life cycle and reproduction                             | Not started       |                             | 2     |
-| 05  | Spatial ecology                                         | Not started       |                             | 3     |
-| 06  | Morphology (L-systems)                                  | Not started       |                             | 4     |
-| 07  | Earth history: Ordovician–Devonian environments         | Not started       |                             | 5     |
-| 08  | Earth history: full Phanerozoic, feedbacks              | Not started       |                             | 6     |
-| 09  | Macroevolution and phylogeny                            | Not started       |                             | 6     |
+| #   | Chapter                                                                           | Status            | Implemented in              | Phase |
+| --- | --------------------------------------------------------------------------------- | ----------------- | --------------------------- | ----- |
+| 01  | [Population genetics](01-population-genetics.md)                                  | v0, needs review  | `packages/sim/src/genetics` | 1     |
+| 02  | [Key innovations timeline](02-innovations-timeline.md)                            | v0, dates checked | (content data, later)       | 0 → 7 |
+| 03  | [Plant physiology](03-plant-physiology.md) (light, photosynthesis, water, carbon) | v0, needs review  | `packages/sim/src/plant`    | 2     |
+| 04  | Life cycle and reproduction                                                       | Not started       |                             | 2     |
+| 05  | Spatial ecology                                                                   | Not started       |                             | 3     |
+| 06  | Morphology (L-systems)                                                            | Not started       |                             | 4     |
+| 07  | Earth history: Ordovician–Devonian environments                                   | Not started       |                             | 5     |
+| 08  | Earth history: full Phanerozoic, feedbacks                                        | Not started       |                             | 6     |
+| 09  | Macroevolution and phylogeny                                                      | Not started       |                             | 6     |
 
 Each chapter is written at the start of the phase that implements it, and reviewed by someone
 with the relevant expertise before that phase ships. Chapters 01 and 02 were written in Phase 0.

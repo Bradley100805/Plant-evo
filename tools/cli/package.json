@@ -1,0 +1,17 @@
+{
+  "name": "@plant-evo/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Headless runner for Plant-evo experiments with CSV export.",
+  "type": "module",
+  "scripts": {
+    "sim": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@plant-evo/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

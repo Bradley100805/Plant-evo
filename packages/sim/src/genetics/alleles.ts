@@ -1,6 +1,13 @@
 /** Marks an allele with no ancestor in the table (founder or externally introduced). */
 export const NO_PARENT = -1;
 
+export interface AlleleTableState {
+  value: Float64Array;
+  locus: Int32Array;
+  parent: Int32Array;
+  origin: Int32Array;
+}
+
 /**
  * Registry of every allele that exists, or has descendants that exist, in a population.
  *
@@ -24,6 +31,28 @@ export class AlleleTable {
 
   get count(): number {
     return this._count;
+  }
+
+  /** Copies of the table's contents, for saving. */
+  exportState(): AlleleTableState {
+    const n = this._count;
+    return {
+      value: this._value.slice(0, n),
+      locus: this._locus.slice(0, n),
+      parent: this._parent.slice(0, n),
+      origin: this._origin.slice(0, n),
+    };
+  }
+
+  static fromState(state: AlleleTableState): AlleleTable {
+    const n = state.value.length;
+    const table = new AlleleTable(Math.max(1024, n));
+    table._value.set(state.value);
+    table._locus.set(state.locus);
+    table._parent.set(state.parent);
+    table._origin.set(state.origin);
+    table._count = n;
+    return table;
   }
 
   /** Additive value of each allele, indexed by id. Valid for ids below `count`. */

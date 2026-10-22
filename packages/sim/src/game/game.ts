@@ -294,12 +294,16 @@ export class Game {
         }
       }
       const report = this.world.stepYear(env);
+      // Genetic measures describe the new generation (after dispersal); reproduction, height
+      // and fertilisation describe the year that produced it. If the lineage just died out,
+      // keep the traits of its last living generation.
+      const population = this.world.population;
       series.push({
         generation: this.world.generation,
-        population: report.population,
+        population,
         reproduced: report.zones.map((z) => z.reproduced),
         variantFrequency: chosen === null ? 0 : this.world.carrierFrequency(pinNames),
-        traitMeans: report.traitMeans,
+        traitMeans: population > 0 ? this.traitMeans() : report.traitMeans,
         sporophyteHeight: report.sporophyteHeight,
         fertilisationRate: report.fertilisationRate,
       });
@@ -348,7 +352,7 @@ export class Game {
   goalStatuses(report = this.reports[this.reports.length - 1]): GoalStatus[] {
     return this.scenario.goals.map((goal) => ({
       goal,
-      progress: report === undefined ? 0 : goalProgress(goal, report, this.epochIndex),
+      progress: report === undefined ? 0 : goalProgress(goal, report),
       achievedIn: this.achieved[goal.id] ?? null,
     }));
   }
@@ -424,7 +428,7 @@ function summariseZones(years: YearReport[]): ZoneSummary[] {
   });
 }
 
-function goalProgress(goal: Goal, report: EpochReport, epochsDone: number): number {
+function goalProgress(goal: Goal, report: EpochReport): number {
   const m = goal.metric;
   switch (m.kind) {
     case 'zoneReproduction': {
@@ -441,6 +445,7 @@ function goalProgress(goal: Goal, report: EpochReport, epochsDone: number): numb
     case 'zoneHeight':
       return report.zones[m.zone].sporophyteHeight / m.metres;
     case 'survive':
-      return report.extinct ? 0 : Math.min(1, epochsDone / (m.epoch + 1));
+      // Judged at the end of the reported epoch, counting that epoch as survived.
+      return report.extinct ? 0 : Math.min(1, (report.epochIndex + 1) / (m.epoch + 1));
   }
 }

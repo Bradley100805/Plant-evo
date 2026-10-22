@@ -50,7 +50,7 @@ export function stepGeneration(pop: Population, fitness: FitnessModel): Generati
     if (!sexual) {
       dst.set(src.subarray(pop.copyOffset(mother, 0), pop.copyOffset(mother + 1, 0)), childOffset);
     } else {
-      const father = pickMate(pop, sampler, mother, rng);
+      const father = pickMate(pop, sampler, total, mother, rng);
       if (pop.ploidy === 1) {
         recombineCopy(
           src,
@@ -115,17 +115,36 @@ export function runGenerations(
   return report;
 }
 
-function pickMate(pop: Population, sampler: AliasSampler, mother: number, rng: Rng): number {
+function pickMate(
+  pop: Population,
+  sampler: AliasSampler,
+  total: number,
+  mother: number,
+  rng: Rng,
+): number {
   const selfing = pop.selfingRate;
   if (selfing === undefined) return sampler.sample(rng);
   if (rng.float() < selfing) return mother;
-  // Outcrossing: redraw until a different parent comes up. If only the mother has positive
-  // fitness, give up and self rather than loop forever.
+  // Outcrossing: draw from the fitness distribution without the mother. Redrawing is fast when
+  // she holds a modest share of the total; if that keeps failing (she dominates), draw exactly
+  // from the others. Both steps sample the same conditional distribution.
   for (let attempt = 0; attempt < 64; attempt++) {
     const father = sampler.sample(rng);
     if (father !== mother) return father;
   }
-  return mother;
+  const weights = pop.fitness;
+  const others = total - weights[mother];
+  // Self only when no other individual can reproduce.
+  if (!(others > 0)) return mother;
+  let r = rng.float() * others;
+  let last = mother;
+  for (let i = 0; i < weights.length; i++) {
+    if (i === mother || weights[i] <= 0) continue;
+    last = i;
+    r -= weights[i];
+    if (r < 0) return i;
+  }
+  return last;
 }
 
 /** Applies mutations to one transmitted genome copy. */

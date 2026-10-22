@@ -22,10 +22,10 @@ const defaults: DriftOptions = {
 export function DriftLab() {
   const [options, setOptions] = useState<DriftOptions>(defaults);
   const [state, run] = useExperiment();
-  const [ran, setRan] = useState<DriftOptions>(defaults);
+  // Options of the run whose result is shown (the next run may still be computing).
+  const ran = state.request?.kind === 'drift' ? state.request.options : defaults;
 
   const start = (o: DriftOptions) => {
-    setRan(o);
     run({ kind: 'drift', options: o });
   };
   useEffect(() => run({ kind: 'drift', options: defaults }), [run]);

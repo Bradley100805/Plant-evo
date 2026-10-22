@@ -23,6 +23,16 @@ describe('parseCommandLine', () => {
     expect(() => parseCommandLine(['drift', '--size', 'big'])).toThrow(UsageError);
   });
 
+  it('rejects values outside each option’s range', () => {
+    expect(() => parseCommandLine(['drift', '--replicates', '0'])).toThrow(UsageError);
+    expect(() => parseCommandLine(['drift', '--size', '0'])).toThrow(UsageError);
+    expect(() => parseCommandLine(['drift', '--size', '2.5'])).toThrow(UsageError);
+    expect(() => parseCommandLine(['drift', '--p0', '1.5'])).toThrow(UsageError);
+    expect(() => parseCommandLine(['sweep', '--s=-2'])).toThrow(UsageError);
+    expect(() => parseCommandLine(['quant', '--fraction', '0'])).toThrow(UsageError);
+    expect(parseCommandLine(['sweep', '--s=-0.5'])?.values.s).toBe(-0.5);
+  });
+
   it('documents every command', () => {
     const text = usage();
     for (const name of ['drift', 'sweep', 'mutsel', 'quant']) expect(text).toContain(name);

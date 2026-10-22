@@ -49,6 +49,7 @@ import {
   basesFromTraits,
   createArchitecture,
   type GenomeArchitecture,
+  type ModuleDef,
   liabilities,
   phenotype,
   T,
@@ -153,6 +154,8 @@ export interface WorldSnapshot {
   options: Omit<WorldOptions, 'landscape' | 'arch'>;
   landscape: Landscape['options'];
   lociPerTrait: number;
+  /** Developmental modules of the genome architecture (custom architectures round-trip). */
+  modules: ModuleDef[];
   generation: number;
   genomes: Uint32Array;
   occupied: Uint8Array;
@@ -702,24 +705,31 @@ export class World {
         const wall = this.sTraits[p * TRAIT_COUNT + T.sporeWall];
         const dormancy = sporeDormancySurvival(wall);
         const h = this.releaseHeight[p];
-        // Spores shed at mat level are mostly trapped in the parent's own patch; raising the
-        // sporangia lets them escape into moving air. Under water, currents carry them off.
-        const submerged = env.depth[p * MONTHS + LIFE.releaseMonths[0]] > 0;
-        const escape = submerged ? 1 : h / (h + LIFE.escapeHeight);
-        const windborne = escape * (h / (h + LIFE.windHeight));
-        const local = escape - windborne;
         const nearby = 0.3 + 0.7 * wall;
-        const survive = (c: number) => 1 - env.dryExposure[c] * (1 - dormancy);
-        offer(p, p, SPORE, (1 - escape) * nearby * germination[p] * (s1 + s0 * survive(p)));
-        for (const o of SPORE_KERNEL) {
-          const nx = x + o.dx;
-          const ny = y + o.dy;
-          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-          const c = ny * width + nx;
-          offer(c, p, SPORE, local * o.weight * nearby * germination[c] * (s1 + s0 * survive(c)));
-        }
         const airborne = 0.1 + 0.9 * wall;
-        globalWeights[p] = windborne * airborne * (s1 + s0 * dormancy);
+        const survive = (c: number) => 1 - env.dryExposure[c] * (1 - dormancy);
+        for (let k = 0; k < 2; k++) {
+          const count = k === 0 ? s0 : s1;
+          if (count === 0) continue;
+          // Spores shed at mat level are mostly trapped in the parent's own patch; raising the
+          // sporangia lets them escape into moving air. Under water, currents carry them off.
+          // Each release is judged by the water at its own month.
+          const submerged = env.depth[p * MONTHS + LIFE.releaseMonths[k]] > 0;
+          const escape = submerged ? 1 : h / (h + LIFE.escapeHeight);
+          const windborne = escape * (h / (h + LIFE.windHeight));
+          const local = escape - windborne;
+          // Spores from the first release must outlast the dry season before they germinate.
+          const viable = (c: number) => (k === 0 ? count * survive(c) : count);
+          offer(p, p, SPORE, (1 - escape) * nearby * germination[p] * viable(p));
+          for (const o of SPORE_KERNEL) {
+            const nx = x + o.dx;
+            const ny = y + o.dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            const c = ny * width + nx;
+            offer(c, p, SPORE, local * o.weight * nearby * germination[c] * viable(c));
+          }
+          globalWeights[p] += windborne * airborne * (k === 0 ? count * dormancy : count);
+        }
         globalTotal += globalWeights[p];
       }
       if (a0 + a1 > 0) {
@@ -875,18 +885,30 @@ export class World {
   carrierFrequency(names: readonly string[]): number {
     const ids = names.map((name) => this.pins.get(name)).filter((id) => id !== undefined);
     if (ids.length === 0) return 0;
-    const mask = new Uint8Array(this.alleles.count);
+    // Pins may sit at different loci: test each individual at every pinned locus.
+    const masks = new Map<number, Uint8Array>();
     for (const id of ids) {
+      const locus = this.alleles.locus(id);
+      let mask = masks.get(locus);
+      if (mask === undefined) {
+        mask = new Uint8Array(this.alleles.count);
+        masks.set(locus, mask);
+      }
       const m = this.alleles.descendantMask(id);
       for (let i = id; i < m.length; i++) if (m[i] === 1) mask[i] = 1;
     }
-    const locus = this.alleles.locus(ids[0]);
     let carriers = 0;
     let population = 0;
     for (let c = 0; c < this.cells; c++) {
       if (this.occupied[c] === 0) continue;
       population++;
-      if (mask[this.genomes[this.offset(c, 0) + locus]] === 1) carriers++;
+      const start = this.offset(c, 0);
+      for (const [locus, mask] of masks) {
+        if (mask[this.genomes[start + locus]] === 1) {
+          carriers++;
+          break;
+        }
+      }
     }
     return population > 0 ? carriers / population : 0;
   }
@@ -922,6 +944,7 @@ export class World {
       options,
       landscape: this.landscape.options,
       lociPerTrait: this.arch.lociPerTrait,
+      modules: this.arch.modules.map((m) => ({ ...m, loadings: { ...m.loadings } })),
       generation: this.generation,
       genomes: this.genomes.slice(),
       occupied: this.occupied.slice(),
@@ -943,7 +966,7 @@ export class World {
     const world = new World({
       ...snapshot.options,
       landscape,
-      arch: createArchitecture(snapshot.lociPerTrait),
+      arch: createArchitecture(snapshot.lociPerTrait, snapshot.modules),
     });
     world.generation = snapshot.generation;
     world.genomes.set(snapshot.genomes);

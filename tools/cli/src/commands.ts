@@ -13,7 +13,15 @@ import { playChapter, type Strategy, STRATEGIES } from './play.ts';
 interface OptionSpec {
   default: number | string;
   help: string;
+  /** Numeric options: allowed range (inclusive) and whether only whole numbers are valid. */
+  min?: number;
+  max?: number;
+  integer?: boolean;
 }
+
+/** A count of individuals, generations, loci or replicates. */
+const count = { integer: true, min: 1 } as const;
+const probability = { min: 0, max: 1 } as const;
 
 interface Command {
   summary: string;
@@ -30,11 +38,11 @@ export const commands: Record<string, Command> = {
     summary: 'Neutral allele-frequency trajectories (genetic drift)',
     options: {
       ...common,
-      size: { default: 100, help: 'Individuals per population' },
+      size: { default: 100, help: 'Individuals per population', ...count },
       ploidy: { default: 2, help: '1 = haploid, 2 = diploid' },
-      generations: { default: 200, help: 'Generations per replicate' },
-      replicates: { default: 10, help: 'Independent populations' },
-      p0: { default: 0.5, help: 'Starting allele frequency' },
+      generations: { default: 200, help: 'Generations per replicate', ...count },
+      replicates: { default: 10, help: 'Independent populations', ...count },
+      p0: { default: 0.5, help: 'Starting allele frequency', ...probability },
     },
     run: (v, onProgress) =>
       driftExperiment(
@@ -53,12 +61,16 @@ export const commands: Record<string, Command> = {
     summary: 'Fate of a single new mutant under selection (as in the Mutation Draft)',
     options: {
       ...common,
-      size: { default: 100, help: 'Individuals per population' },
+      size: { default: 100, help: 'Individuals per population', ...count },
       ploidy: { default: 2, help: '1 = haploid, 2 = diploid' },
-      s: { default: 0.05, help: 'Selection coefficient of the mutant homozygote' },
-      h: { default: 0.5, help: 'Dominance of the mutant (diploid)' },
-      replicates: { default: 100, help: 'Independent introductions' },
-      'max-generations': { default: 10_000, help: 'Give up on a replicate after this long' },
+      s: { default: 0.05, help: 'Selection coefficient of the mutant homozygote', min: -1 },
+      h: { default: 0.5, help: 'Dominance of the mutant (diploid)', ...probability },
+      replicates: { default: 100, help: 'Independent introductions', ...count },
+      'max-generations': {
+        default: 10_000,
+        help: 'Give up on a replicate after this long',
+        ...count,
+      },
     },
     run: (v, onProgress) =>
       sweepExperiment(
@@ -78,12 +90,12 @@ export const commands: Record<string, Command> = {
     summary: 'Mutation–selection balance for deleterious alleles',
     options: {
       ...common,
-      size: { default: 1000, help: 'Individuals (diploid)' },
-      loci: { default: 20, help: 'Independent loci' },
-      mu: { default: 0.001, help: 'Mutation rate per locus per gene copy' },
-      s: { default: 0.1, help: 'Fitness cost of the mutant homozygote' },
-      h: { default: 0.5, help: 'Dominance of the deleterious allele' },
-      generations: { default: 1000, help: 'Generations to run' },
+      size: { default: 1000, help: 'Individuals (diploid)', ...count },
+      loci: { default: 20, help: 'Independent loci', ...count },
+      mu: { default: 0.001, help: 'Mutation rate per locus per gene copy', ...probability },
+      s: { default: 0.1, help: 'Fitness cost of the mutant homozygote', ...probability },
+      h: { default: 0.5, help: 'Dominance of the deleterious allele', ...probability },
+      generations: { default: 1000, help: 'Generations to run', ...count },
     },
     run: (v, onProgress) =>
       mutationSelectionExperiment(
@@ -103,12 +115,12 @@ export const commands: Record<string, Command> = {
     summary: "Truncation selection on a quantitative trait vs. the breeder's equation",
     options: {
       ...common,
-      size: { default: 2000, help: 'Individuals (diploid)' },
-      loci: { default: 100, help: 'Additive loci' },
+      size: { default: 2000, help: 'Individuals (diploid)', integer: true, min: 2 },
+      loci: { default: 100, help: 'Additive loci', ...count },
       effect: { default: 0.1, help: 'Effect of each "+" allele' },
-      ve: { default: 0.5, help: 'Environmental variance' },
-      fraction: { default: 0.2, help: 'Fraction selected as parents' },
-      generations: { default: 20, help: 'Generations of selection' },
+      ve: { default: 0.5, help: 'Environmental variance', min: 0 },
+      fraction: { default: 0.2, help: 'Fraction selected as parents', min: 0.001, max: 1 },
+      generations: { default: 20, help: 'Generations of selection', ...count },
     },
     run: (v, onProgress) =>
       truncationExperiment(
@@ -177,6 +189,12 @@ export function parseCommandLine(argv: readonly string[]): ParsedCommand | null 
       const parsed = Number(raw);
       if (!Number.isFinite(parsed))
         throw new UsageError(`--${key} expects a number, got "${raw}".`);
+      if (spec.integer === true && !Number.isInteger(parsed))
+        throw new UsageError(`--${key} expects a whole number, got "${raw}".`);
+      if (spec.min !== undefined && parsed < spec.min)
+        throw new UsageError(`--${key} must be at least ${spec.min}, got ${raw}.`);
+      if (spec.max !== undefined && parsed > spec.max)
+        throw new UsageError(`--${key} must be at most ${spec.max}, got ${raw}.`);
       resolved[key] = parsed;
     } else {
       resolved[key] = raw;

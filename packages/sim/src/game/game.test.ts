@@ -74,6 +74,37 @@ describe('Game', () => {
     expect(report.chosen?.index ?? null).toBe(expected);
   });
 
+  it('awards a survival goal at the end of its target epoch', () => {
+    const scenario: Scenario = {
+      ...QUICK,
+      id: 'quick-survive',
+      goals: [
+        {
+          id: 'first',
+          title: 'Survive the first epoch',
+          description: '',
+          metric: { kind: 'survive', epoch: 0 },
+          realHistory: '',
+        },
+      ],
+    };
+    SCENARIOS[scenario.id] = scenario;
+    const game = Game.create(scenario.id, 'seed-6');
+    const report = game.runEpoch(null);
+    expect(report.extinct).toBe(false);
+    expect(report.goalsAchieved).toEqual(['first']);
+    expect(game.achieved.first).toBe(0);
+  });
+
+  it('measures each generation point on the generation it names', () => {
+    const game = Game.create(QUICK.id, 'seed-7');
+    const report = game.runEpoch(0);
+    const last = report.series[report.series.length - 1];
+    expect(last.generation).toBe(game.world.generation);
+    expect(last.population).toBe(game.world.population);
+    expect(last.traitMeans).toEqual(game.traitMeans());
+  });
+
   it('reports progress for every goal and records achievements once', () => {
     const game = Game.create(QUICK.id, 'seed-5');
     game.runEpoch(0);

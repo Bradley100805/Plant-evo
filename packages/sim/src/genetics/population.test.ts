@@ -130,6 +130,25 @@ describe('stepGeneration', () => {
     expect(heterozygosity()).toBeCloseTo(0.25, 1);
   });
 
+  it('never selfs an outcrossing population while another parent can reproduce', () => {
+    // One individual holds almost all the fitness. With selfing rate 0 every offspring still
+    // needs a different father, however rarely the others come up in the sampler.
+    const pop = new Population({ size: 50, ploidy: 2, loci: 1, selfingRate: 0 }, 'outcross');
+    const marked = pop.alleles.add(1, 0, NO_PARENT, 0);
+    pop.setAllele(0, 0, 0, marked);
+    pop.setAllele(0, 1, 0, marked);
+    const skewed = {
+      name: 'skewed',
+      evaluate: (_: Population, out: Float64Array) => {
+        out.fill(1e-7);
+        out[0] = 1;
+      },
+    };
+    stepGeneration(pop, skewed);
+    const homozygous = genotypeCounts(pop, 0, (v) => v === 1)[2];
+    expect(homozygous).toBe(0);
+  });
+
   it('creates about 2·N·L·μ mutations per diploid generation', () => {
     const pop = new Population({ size: 500, ploidy: 2, loci: 40, mutationRate: 0.002 }, 'mut');
     let total = 0;

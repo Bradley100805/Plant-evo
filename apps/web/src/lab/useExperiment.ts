@@ -6,6 +6,8 @@ export interface ExperimentState {
   status: 'idle' | 'running' | 'done' | 'error';
   progress: number;
   result: ExperimentResult | null;
+  /** The request that produced `result` (a newer run may be in flight). */
+  request: ExperimentRequest | null;
   elapsedMs: number;
   error: string | null;
 }
@@ -14,6 +16,7 @@ const initial: ExperimentState = {
   status: 'idle',
   progress: 0,
   result: null,
+  request: null,
   elapsedMs: 0,
   error: null,
 };
@@ -48,6 +51,7 @@ export function useExperiment(): [ExperimentState, (request: ExperimentRequest) 
           status: 'done',
           progress: 1,
           result: message.result,
+          request,
           elapsedMs: message.elapsedMs,
           error: null,
         });

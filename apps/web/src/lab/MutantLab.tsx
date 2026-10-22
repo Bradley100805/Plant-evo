@@ -27,10 +27,10 @@ const defaults: SweepOptions = {
 export function MutantLab() {
   const [options, setOptions] = useState<SweepOptions>(defaults);
   const [state, run] = useExperiment();
-  const [ran, setRan] = useState<SweepOptions>(defaults);
+  // Options of the run whose result is shown (the next run may still be computing).
+  const ran = state.request?.kind === 'sweep' ? state.request.options : defaults;
 
   const start = (o: SweepOptions) => {
-    setRan(o);
     run({ kind: 'sweep', options: o });
   };
   useEffect(() => run({ kind: 'sweep', options: defaults }), [run]);

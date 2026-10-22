@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { T, type TraitId } from '../plant/traits.ts';
+import { createArchitecture, MODULES, T, type TraitId } from '../plant/traits.ts';
 import { buildEnvironment, type EnvironmentSpec, Landscape, ZONES } from './landscape.ts';
 import { sporeDormancySurvival, World } from './world.ts';
 
@@ -96,6 +96,46 @@ describe('world', () => {
     world.seed(() => true);
     const report = world.stepYear(env);
     expect(report.zones.reduce((n, z) => n + z.fertilised, 0)).toBe(0);
+  });
+
+  it('counts carriers of pinned lineages at every pinned locus', () => {
+    const world = makeWorld('pins');
+    world.seed(() => true);
+    const loci = world.arch.lociPerTrait;
+    world.pin('a', world.introduceVariant(T.cuticle * loci, 1, 40));
+    world.pin('b', world.introduceVariant(T.stomata * loci, 1, 40));
+    const a = world.carrierFrequency(['a']);
+    const b = world.carrierFrequency(['b']);
+    const both = world.carrierFrequency(['a', 'b']);
+    expect(both).toBeGreaterThan(Math.max(a, b));
+    expect(both).toBeLessThanOrEqual(a + b + 1e-12);
+  });
+
+  it('keeps a custom genome architecture through a snapshot', () => {
+    const landscape = new Landscape({ width: 24, height: 12, shoreColumn: 8 });
+    const modules = [{ id: 'test', label: 'Test module', loadings: { stature: 0.9 } }];
+    const arch = createArchitecture(3, modules);
+    const world = new World({
+      landscape,
+      ancestral,
+      mutationRate: 3e-4,
+      mutationSd: 0.12,
+      seed: 'arch',
+      arch,
+    });
+    world.seed(() => true);
+    world.introduceVariant(arch.loci - 1, 2, 100);
+    const restored = World.restore(world.snapshot(), landscape);
+    expect(restored.arch.loci).toBe(arch.loci);
+    expect(restored.arch.modules).toEqual(modules);
+    expect(restored.arch.modules).not.toEqual(MODULES);
+    const traits = new Float64Array(10);
+    const restoredTraits = new Float64Array(10);
+    for (let c = 0; c < world.cells; c++) {
+      world.inheritedTraits(c, traits);
+      restored.inheritedTraits(c, restoredTraits);
+      expect(Array.from(restoredTraits)).toEqual(Array.from(traits));
+    }
   });
 
   it('spore walls improve dry-season survival', () => {

@@ -5,8 +5,25 @@ the evolution of land plants. Players follow lineages from freshwater algae to m
 grasslands. Outcomes come from simulated physiology, ecology, and population genetics,
 not from a scripted tech tree.
 
-> Status: planning document (v0). Dates, figures, and citations here are a starting point.
-> Verify each one when writing the Science Bible in Phase 0.
+> Status: accepted. Phases 0 and 1 are complete (see [Progress](#progress)). The dates in §5
+> were checked in Phase 0; sources and confidence levels are in
+> [Science Bible chapter 02](science/02-innovations-timeline.md).
+
+## Progress
+
+- **Phase 0, foundations: done; two items wait on the owner.** The monorepo, CI and the Pages
+  workflow are in place. Science Bible chapters
+  [01](science/01-population-genetics.md) and [02](science/02-innovations-timeline.md) and
+  [ADRs 0001–0005](adr/README.md) are written. The open decisions in §11 run on the
+  recommended defaults ([ADR 0005](adr/0005-phase-0-defaults.md)). The owner still needs to
+  enable GitHub Pages and arrange an expert review of the Science Bible. One change from the
+  plan: the physiology and Ordovician–Devonian chapters are written at the start of Phases 2
+  and 5, which implement them.
+- **Phase 1, population genetics engine: done.** Seeded RNG, Wright–Fisher engine, 12
+  statistical checks against theory (all passing; chapter 01 §8), and the CLI with CSV export.
+  Added beyond the plan: a web Lab (genetic drift, fate of a new mutation) that previews the
+  engine in the browser. Its charts and CSV export replace the planned plotting notebook.
+- **Phase 2, physiology and life cycle: next.** See §13.
 
 ---
 
@@ -30,8 +47,8 @@ not from a scripted tech tree.
 
 ## 1. Vision and design pillars
 
-**One-line pitch:** *You don't design a plant. You set up the conditions, pick which
-random variants to follow, and watch selection decide across 500 million years.*
+**One-line pitch:** _You don't design a plant. You set up the conditions, pick which
+random variants to follow, and watch selection decide across 500 million years._
 
 ### Pillars
 
@@ -56,14 +73,14 @@ random variants to follow, and watch selection decide across 500 million years.*
 
 The design and the scientific review both measure against these goals:
 
-| # | Players should come away understanding that... |
-|---|------------------------------------------------|
-| 1 | Mutations are random with respect to need, and selection is the non-random part. |
-| 2 | Fitness depends on context. Every trait has costs and trade-offs. |
-| 3 | Genetic drift matters, especially in small populations. Most new beneficial mutations are still lost. |
-| 4 | Key innovations open new ecological opportunity, which leads to adaptive radiations. |
-| 5 | Plants and the planet co-evolve (CO₂, O₂, soils, fire, climate). |
-| 6 | We reconstruct evolutionary history from incomplete evidence (fossils, phylogenies). |
+| #   | Players should come away understanding that...                                                        |
+| --- | ----------------------------------------------------------------------------------------------------- |
+| 1   | Mutations are random with respect to need, and selection is the non-random part.                      |
+| 2   | Fitness depends on context. Every trait has costs and trade-offs.                                     |
+| 3   | Genetic drift matters, especially in small populations. Most new beneficial mutations are still lost. |
+| 4   | Key innovations open new ecological opportunity, which leads to adaptive radiations.                  |
+| 5   | Plants and the planet co-evolve (CO₂, O₂, soils, fire, climate).                                      |
+| 6   | We reconstruct evolutionary history from incomplete evidence (fossils, phylogenies).                  |
 
 ---
 
@@ -74,11 +91,11 @@ organisms evolved toward goals. Plant-evo needs player agency without that teleo
 
 ### Recommended model: three modes with different kinds of agency
 
-| Mode | What the player controls | What stays emergent |
-|------|--------------------------|---------------------|
+| Mode                   | What the player controls                                                                                                                                                                                                             | What stays emergent                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | **Lineage (campaign)** | A **Mutation Draft**: each epoch the simulation generates a few random heritable variants of the focal lineage, and the player picks which one to introduce. The player also chooses which daughter species to follow after a split. | Whether the variant spreads (selection and drift), all competitors, and the environment. |
-| **Planet (sandbox)** | The environment: CO₂, temperature, continents, catastrophes, and time speed. | All evolution. Mutations arise at a set rate with no player picks. |
-| **Experiment** | Hypotheses: environment settings, starting populations, number of replicates. | All results. The game reports statistics across replicates. |
+| **Planet (sandbox)**   | The environment: CO₂, temperature, continents, catastrophes, and time speed.                                                                                                                                                         | All evolution. Mutations arise at a set rate with no player picks.                       |
+| **Experiment**         | Hypotheses: environment settings, starting populations, number of replicates.                                                                                                                                                        | All results. The game reports statistics across replicates.                              |
 
 #### How the Mutation Draft stays honest
 
@@ -92,7 +109,7 @@ organisms evolved toward goals. Plant-evo needs player agency without that teleo
   allele in a large population), so good picks are often lost to drift. That loss is a
   core lesson, not a bug.
 - The codex states the framing plainly: the player is choosing which of the mutations
-  that *did* arise we follow. The player is not giving the plant foresight.
+  that _did_ arise we follow. The player is not giving the plant foresight.
 - A **Pure mode** switch removes the draft entirely. Mutations then arise at rate μ,
   which suits classrooms.
 
@@ -150,17 +167,21 @@ own tests and its own Science Bible chapter.
 ```ts
 // Sketch only
 interface Genome {
-  alleles: Float32Array;     // [locus * ploidy] additive effects
-  capacities: Uint32Array;   // bitset of discrete developmental capacities
-  ploidy: number;            // 1, 2, 4, ...
+  alleles: Float32Array; // [locus * ploidy] additive effects
+  capacities: Uint32Array; // bitset of discrete developmental capacities
+  ploidy: number; // 1, 2, 4, ...
 }
 
 interface Phenotype {
-  cuticle: number; stomatalDensity: number; lignin: number;
-  rootShoot: number; lma: number; heightMax: number;
+  cuticle: number;
+  stomatalDensity: number;
+  lignin: number;
+  rootShoot: number;
+  lma: number;
+  heightMax: number;
   pathway: 'C3' | 'C4' | 'CAM';
   lifeCycle: { sporophyteDominance: number; heterospory: number; seed: boolean };
-  morphology: MorphParams;   // feeds the L-system
+  morphology: MorphParams; // feeds the L-system
 }
 ```
 
@@ -177,21 +198,21 @@ interface Phenotype {
 
 ### 4.3 Physiology (per individual, per time step)
 
-| Process | Model (simplified where noted) |
-|---------|--------------------------------|
-| Light interception | Beer-Lambert canopy attenuation, `I = I₀·e^(−k·LAI)` (Monsi & Saeki), with taller neighbours shading shorter ones |
-| C3 photosynthesis | Farquhar, von Caemmerer & Berry (FvCB): `A = min(Wc, Wj) − Rd`, with temperature dependence |
-| C4 photosynthesis | Collatz et al. (1992) simplified C4 model |
-| CAM | Simplified night-time CO₂ uptake with a large cut in water loss and a growth-rate penalty |
-| Stomatal conductance | Medlyn et al. (2011) optimal stomatal model |
-| Water balance | Soil water bucket, transpiration from conductance and VPD, hydraulic conductance, and xylem cavitation from a vulnerability curve (P50) |
-| Desiccation | Poikilohydric strategy (tolerate drying, as in bryophyte-grade plants) vs. homoiohydric strategy (cuticle, stomata, and vasculature keep water status stable) |
-| Carbon budget | Gross photosynthesis − maintenance respiration − construction costs, then allocation to leaf, stem, root, and reproduction |
-| Mechanics | Critical buckling height `H ∝ (E/ρ)^(1/3)·D^(2/3)` (Greenhill/McMahon) |
-| Hydraulic height limit | Gravity and path-length resistance, with an upper bound near the ~120–130 m tree-height limit (Koch et al. 2004) |
-| Nutrients | N and P uptake scaled by root mass and mycorrhizal status |
-| Leaf economics | Trade-offs bounded by the leaf economics spectrum (Wright et al. 2004) |
-| Temperature stress | Frost and heat damage thresholds, plus dormancy and deciduousness responses |
+| Process                | Model (simplified where noted)                                                                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Light interception     | Beer-Lambert canopy attenuation, `I = I₀·e^(−k·LAI)` (Monsi & Saeki), with taller neighbours shading shorter ones                                             |
+| C3 photosynthesis      | Farquhar, von Caemmerer & Berry (FvCB): `A = min(Wc, Wj) − Rd`, with temperature dependence                                                                   |
+| C4 photosynthesis      | Collatz et al. (1992) simplified C4 model                                                                                                                     |
+| CAM                    | Simplified night-time CO₂ uptake with a large cut in water loss and a growth-rate penalty                                                                     |
+| Stomatal conductance   | Medlyn et al. (2011) optimal stomatal model                                                                                                                   |
+| Water balance          | Soil water bucket, transpiration from conductance and VPD, hydraulic conductance, and xylem cavitation from a vulnerability curve (P50)                       |
+| Desiccation            | Poikilohydric strategy (tolerate drying, as in bryophyte-grade plants) vs. homoiohydric strategy (cuticle, stomata, and vasculature keep water status stable) |
+| Carbon budget          | Gross photosynthesis − maintenance respiration − construction costs, then allocation to leaf, stem, root, and reproduction                                    |
+| Mechanics              | Critical buckling height `H ∝ (E/ρ)^(1/3)·D^(2/3)` (Greenhill/McMahon)                                                                                        |
+| Hydraulic height limit | Gravity and path-length resistance, with an upper bound near the ~120–130 m tree-height limit (Koch et al. 2004)                                              |
+| Nutrients              | N and P uptake scaled by root mass and mycorrhizal status                                                                                                     |
+| Leaf economics         | Trade-offs bounded by the leaf economics spectrum (Wright et al. 2004)                                                                                        |
+| Temperature stress     | Frost and heat damage thresholds, plus dormancy and deciduousness responses                                                                                   |
 
 ### 4.4 Life cycle and reproduction
 
@@ -238,19 +259,19 @@ interface Phenotype {
 Global time series from about 500 Ma to the present, interpolated and versioned in
 the data package:
 
-| Variable | Candidate sources |
-|----------|-------------------|
-| Atmospheric CO₂ | Foster, Royer & Lunt (2017) proxy compilation; GEOCARBSULF (Berner 2006) |
-| Atmospheric O₂ | GEOCARBSULF / COPSE-family models |
-| Global temperature | Judd et al. (2024) Phanerozoic temperature curve |
-| Paleogeography | GPlates and open plate models (check licenses before use) |
-| Sea level, glaciations | Published compilations, to be chosen in Phase 0 |
-| Mass extinctions | Late Devonian, end-Permian, end-Triassic, K-Pg, plus the Carboniferous rainforest collapse |
+| Variable               | Candidate sources                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| Atmospheric CO₂        | Foster, Royer & Lunt (2017) proxy compilation; GEOCARBSULF (Berner 2006)                   |
+| Atmospheric O₂         | GEOCARBSULF / COPSE-family models                                                          |
+| Global temperature     | Judd et al. (2024) Phanerozoic temperature curve                                           |
+| Paleogeography         | GPlates and open plate models (check licenses before use)                                  |
+| Sea level, glaciations | Published compilations, to be chosen in Phase 0                                            |
+| Mass extinctions       | Late Devonian, end-Permian, end-Triassic, K-Pg, plus the Carboniferous rainforest collapse |
 
 - **Local climate per patch:** a latitudinal temperature gradient, precipitation bands
   from simplified circulation (Hadley cells, a rough approximation), and seasonality.
 - **Feedback (switchable):** plant-driven silicate weathering draws down CO₂, in the
-  style of GEOCARB. With it on, the player's plants change the planet. A *Data-locked*
+  style of GEOCARB. With it on, the player's plants change the planet. A _Data-locked_
   setting forces the historical curve instead.
 
 ### 4.8 Macroevolution and phylogeny
@@ -266,7 +287,7 @@ the data package:
   clades that follow the same rules.
 - **Fossil record:** a taphonomic filter decides which lineages get preserved. Woody,
   lowland, swamp-dwelling plants preserve well, while small upland herbs rarely do.
-  Players see a *gappy* fossil record next to the true tree.
+  Players see a _gappy_ fossil record next to the true tree.
 
 ### 4.9 Bridging timescales (the hardest modelling problem)
 
@@ -287,31 +308,32 @@ game uses **two linked tiers**:
 ## 5. Key innovations catalog
 
 The first content backlog. Every row needs a developmental basis, physiology hooks,
-a codex entry with citations, and a validation scenario (see §8). Dates are approximate
-and must be verified in Phase 0.
+a codex entry with citations, and a validation scenario (see §8). Dates are approximate.
+Phase 0 checked them; sources and confidence are in Science Bible chapter 02, and rows it has
+not yet checked are listed there.
 
-| Innovation | Approx. first appearance | In-game prerequisites | Benefit | Cost / trade-off |
-|------------|--------------------------|-----------------------|---------|------------------|
-| Sporopollenin-walled spores | ~470 Ma (Mid-Ordovician cryptospores) | — | Spores survive drying and air dispersal | Wall construction cost |
-| Waxy cuticle | Ordovician–Silurian | — | Less water loss, UV protection | Blocks gas exchange |
-| Stomata | by ~420 Ma (Late Silurian) | Cuticle | Regulated gas exchange (homoiohydry) | Water lost when open |
-| Branched, dominant sporophyte | Silurian | — | More sporangia per fertilization | Support and investment costs |
-| Lignified conducting cells (tracheids) | ~430 Ma (Silurian) | Dominant sporophyte | Water transport, height | Lignin carbon cost, cavitation risk |
-| Roots (≥2 independent origins) | Early–Mid Devonian | Vascular tissue | Anchorage, water and nutrient uptake | Below-ground carbon |
-| Microphylls | Early Devonian (lycophytes) | Vascular tissue | More photosynthetic area | Limited size |
-| Megaphylls | Mid–Late Devonian, spreading as CO₂ fell | Branching, vasculature, stomata | High light capture | Overheating at low stomatal density and high CO₂ (Beerling et al. 2001) |
-| Wood (secondary growth) | ~400 Ma (Early Devonian) | Vascular cambium | Height, longevity, support | Slow, costly growth |
-| Heterospory (many origins) | ~385 Ma (Mid Devonian) | — | Provisioned female gametophyte | Fewer megaspores |
-| Seeds | ~365 Ma (Late Devonian) | Heterospory, retained megaspore, integument | Dormancy, provisioning, dispersal | High cost per propagule |
-| Pollen | With early seeds | Seeds | Fertilization without free water | Large wind-pollen output |
-| Flowers, carpels, double fertilization | Early Cretaceous (~130 Ma; earlier origin debated) | Seeds | Animal pollination, fast life cycles | Display and nectar cost |
-| Fruits | Cretaceous | Carpels | Animal seed dispersal | Fruit tissue cost |
-| Vessels | Mainly angiosperms (convergent in a few other groups) | Vascular tissue | High hydraulic conductance | Higher embolism risk |
-| C4 photosynthesis (>60 origins) | ~30 Ma (Oligocene); grassland expansion late Miocene | Kranz-anatomy precursors | Efficient at low CO₂, high temperature, high light | Extra ATP cost, poor in cool climates |
-| CAM (many origins) | Uncertain timing | Succulence | Extreme water-use efficiency | Slow growth |
-| Mycorrhizal symbiosis | Likely early in land colonization (Rhynie chert, ~407 Ma) | — | P and water uptake | Carbon paid to the fungus |
-| Deciduousness and dormancy | Multiple times | — | Survives cold or dry seasons | Leaf carbon lost each year |
-| Polyploidy (WGD) | Recurrent | — | Reproductive isolation, raw genetic material | Meiotic problems, cell-size effects |
+| Innovation                             | Approx. first appearance                                      | In-game prerequisites                       | Benefit                                            | Cost / trade-off                                                        |
+| -------------------------------------- | ------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
+| Sporopollenin-walled spores            | ~473–471 Ma (Mid-Ordovician cryptospores)                     | —                                           | Spores survive drying and air dispersal            | Wall construction cost                                                  |
+| Waxy cuticle                           | Ordovician–Silurian                                           | —                                           | Less water loss, UV protection                     | Blocks gas exchange                                                     |
+| Stomata                                | Silurian                                                      | Cuticle                                     | Regulated gas exchange (homoiohydry)               | Water lost when open                                                    |
+| Branched, dominant sporophyte          | Silurian                                                      | —                                           | More sporangia per fertilization                   | Support and investment costs                                            |
+| Lignified conducting cells (tracheids) | ~430 Ma (Silurian)                                            | Dominant sporophyte                         | Water transport, height                            | Lignin carbon cost, cavitation risk                                     |
+| Roots (≥2 independent origins)         | Early–Mid Devonian                                            | Vascular tissue                             | Anchorage, water and nutrient uptake               | Below-ground carbon                                                     |
+| Microphylls                            | Early Devonian (lycophytes)                                   | Vascular tissue                             | More photosynthetic area                           | Limited size                                                            |
+| Megaphylls                             | Mid–Late Devonian, spreading as CO₂ fell                      | Branching, vasculature, stomata             | High light capture                                 | Overheating at low stomatal density and high CO₂ (Beerling et al. 2001) |
+| Wood (secondary growth)                | ~400 Ma (Early Devonian)                                      | Vascular cambium                            | Height, longevity, support                         | Slow, costly growth                                                     |
+| Heterospory (many origins)             | ~400 Ma (graded spores); mainly 408–383 Ma                    | —                                           | Provisioned female gametophyte                     | Fewer megaspores                                                        |
+| Seeds                                  | ~365 Ma (Late Devonian)                                       | Heterospory, retained megaspore, integument | Dormancy, provisioning, dispersal                  | High cost per propagule                                                 |
+| Pollen                                 | With early seeds                                              | Seeds                                       | Fertilization without free water                   | Large wind-pollen output                                                |
+| Flowers, carpels, double fertilization | Early Cretaceous (~130 Ma; earlier origin debated)            | Seeds                                       | Animal pollination, fast life cycles               | Display and nectar cost                                                 |
+| Fruits                                 | Cretaceous                                                    | Carpels                                     | Animal seed dispersal                              | Fruit tissue cost                                                       |
+| Vessels                                | Mainly angiosperms (convergent in a few other groups)         | Vascular tissue                             | High hydraulic conductance                         | Higher embolism risk                                                    |
+| C4 photosynthesis (>60 origins)        | ~32–25 Ma (Oligocene); grassland expansion late Miocene       | Kranz-anatomy precursors                    | Efficient at low CO₂, high temperature, high light | Extra ATP cost, poor in cool climates                                   |
+| CAM (many origins)                     | Uncertain timing                                              | Succulence                                  | Extreme water-use efficiency                       | Slow growth                                                             |
+| Mycorrhizal symbiosis                  | Likely early in land colonization (Rhynie chert, ~407–411 Ma) | —                                           | P and water uptake                                 | Carbon paid to the fungus                                               |
+| Deciduousness and dormancy             | Multiple times                                                | —                                           | Survives cold or dry seasons                       | Leaf carbon lost each year                                              |
+| Polyploidy (WGD)                       | Recurrent                                                     | —                                           | Reproductive isolation, raw genetic material       | Meiotic problems, cell-size effects                                     |
 
 ---
 
@@ -335,17 +357,17 @@ and must be verified in Phase 0.
 
 ### 6.2 Campaign chapters (tied to Earth history)
 
-| # | Chapter | Era | Challenge | Innovations in play |
-|---|---------|-----|-----------|---------------------|
-| 1 | **Leaving the Water** | Ordovician | Desiccation and UV at pond margins | Spores, cuticle, desiccation tolerance, fungal partners |
-| 2 | **Reaching Up** | Silurian–Early Devonian | Gas exchange vs. water loss; the Rhynie chert ecosystem | Stomata, tracheids, branched sporophyte |
-| 3 | **First Forests** | Devonian | Light competition; falling CO₂; Late Devonian extinction | Roots, leaves, wood, heterospory, seeds |
-| 4 | **Coal Swamps** | Carboniferous | High O₂ and wildfire; rainforest collapse as the climate dries | Seed plants vs. lycopsid trees |
-| 5 | **The Great Dying** | Permian–Triassic | Aridity and the end-Permian extinction | Conifers, seed ferns, drought tolerance |
-| 6 | **Giants and Grazers** | Jurassic | Pressure from large herbivores | Defenses, height, regrowth |
-| 7 | **The Abominable Mystery** | Cretaceous | Pollinator coevolution and rapid radiation | Flowers, fruits, vessels, fast life cycles |
-| 8 | **After the Impact** | K-Pg | Recovery after the "fern spike" | Opportunistic colonizers |
-| 9 | **Grass and Fire** | Cenozoic | CO₂ decline, aridity, fire, ice ages | C4, CAM, deciduousness, grasses |
+| #   | Chapter                    | Era                     | Challenge                                                      | Innovations in play                                     |
+| --- | -------------------------- | ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------- |
+| 1   | **Leaving the Water**      | Ordovician              | Desiccation and UV at pond margins                             | Spores, cuticle, desiccation tolerance, fungal partners |
+| 2   | **Reaching Up**            | Silurian–Early Devonian | Gas exchange vs. water loss; the Rhynie chert ecosystem        | Stomata, tracheids, branched sporophyte                 |
+| 3   | **First Forests**          | Devonian                | Light competition; falling CO₂; Late Devonian extinction       | Roots, leaves, wood, heterospory, seeds                 |
+| 4   | **Coal Swamps**            | Carboniferous           | High O₂ and wildfire; rainforest collapse as the climate dries | Seed plants vs. lycopsid trees                          |
+| 5   | **The Great Dying**        | Permian–Triassic        | Aridity and the end-Permian extinction                         | Conifers, seed ferns, drought tolerance                 |
+| 6   | **Giants and Grazers**     | Jurassic                | Pressure from large herbivores                                 | Defenses, height, regrowth                              |
+| 7   | **The Abominable Mystery** | Cretaceous              | Pollinator coevolution and rapid radiation                     | Flowers, fruits, vessels, fast life cycles              |
+| 8   | **After the Impact**       | K-Pg                    | Recovery after the "fern spike"                                | Opportunistic colonizers                                |
+| 9   | **Grass and Fire**         | Cenozoic                | CO₂ decline, aridity, fire, ice ages                           | C4, CAM, deciduousness, grasses                         |
 
 Each chapter is defined in data (environment script, starting lineages, goals, and codex
 unlocks), so teachers and modders can author new ones.
@@ -353,8 +375,8 @@ unlocks), so teachers and modders can author new ones.
 ### 6.3 Goals and progression
 
 - **Goals are ecological, not trait checklists:** survive an extinction event, reach a
-  given biomass share, colonize a biome, produce *N* descendant species.
-- **Field Notes** (achievements) reward *observing* phenomena: a founder effect, a
+  given biomass share, colonize a biome, produce _N_ descendant species.
+- **Field Notes** (achievements) reward _observing_ phenomena: a founder effect, a
   harmful allele fixed by drift, convergent evolution, an adaptive radiation after an
   extinction, an evolutionary trade-off.
 - **Extinction is a teaching moment.** A post-mortem explains why the lineage died,
@@ -372,7 +394,7 @@ unlocks), so teachers and modders can author new ones.
 5. **Tree of life:** a time-calibrated phylogeny of your clade and rival clades, with a
    toggle between the true tree and the fossil-record-only view.
 6. **Codex:** concept pages with citations and a confidence level for each claim:
-   *Established*, *Well supported*, or *Hypothesis*.
+   _Established_, _Well supported_, or _Hypothesis_.
 
 ### 6.5 Language style guide (anti-teleology)
 
@@ -389,21 +411,21 @@ unlocks), so teachers and modders can author new ones.
 The reasons for web-first: it runs on school Chromebooks, needs no install, and shares
 easily. It can later be wrapped for desktop (Tauri) and published on Steam.
 
-| Concern | Choice |
-|---------|--------|
-| Language | TypeScript (strict) |
-| Build / monorepo | Vite, pnpm workspaces |
-| UI | React, with Zustand for UI state |
-| 2D world rendering | PixiJS (WebGL) |
-| 3D plant inspector | Three.js (via react-three-fiber), added after 2D works |
-| Charts | D3 or Observable Plot |
-| Simulation runtime | Web Worker(s) via Comlink; the sim core is pure TypeScript with no DOM |
-| Hot loops | Structure-of-arrays typed arrays; Rust/WASM **only** if profiling shows a need |
-| Data validation | zod schemas for every dataset, chapter, and trait definition |
-| Saves | IndexedDB with versioned schemas and migrations |
-| Tests | Vitest, fast-check (property-based tests), Playwright (end-to-end) |
-| CI / deploy | GitHub Actions: lint, typecheck, tests, statistical suite (nightly); GitHub Pages previews |
-| Science analysis | Headless CLI that exports CSV, plus Jupyter notebooks for calibration plots |
+| Concern            | Choice                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| Language           | TypeScript (strict)                                                                        |
+| Build / monorepo   | Vite, pnpm workspaces                                                                      |
+| UI                 | React, with Zustand for UI state                                                           |
+| 2D world rendering | PixiJS (WebGL)                                                                             |
+| 3D plant inspector | Three.js (via react-three-fiber), added after 2D works                                     |
+| Charts             | D3 or Observable Plot                                                                      |
+| Simulation runtime | Web Worker(s) via Comlink; the sim core is pure TypeScript with no DOM                     |
+| Hot loops          | Structure-of-arrays typed arrays; Rust/WASM **only** if profiling shows a need             |
+| Data validation    | zod schemas for every dataset, chapter, and trait definition                               |
+| Saves              | IndexedDB with versioned schemas and migrations                                            |
+| Tests              | Vitest, fast-check (property-based tests), Playwright (end-to-end)                         |
+| CI / deploy        | GitHub Actions: lint, typecheck, tests, statistical suite (nightly); GitHub Pages previews |
+| Science analysis   | Headless CLI that exports CSV, plus Jupyter notebooks for calibration plots                |
 
 **When to choose Godot or Unity instead:** pick an engine if high-fidelity 3D and a
 console or Steam release matter more than classroom reach. The sim core design below
@@ -441,17 +463,18 @@ plant-evo/
 ```ts
 // Pseudocode
 for (const ind of population) {
-  const env   = climate(patch(ind), season, epoch);
-  const light = canopyLight(ind, neighbours(ind));          // Beer–Lambert
-  const A     = photosynthesis(ind.pheno, light, env);      // FvCB / C4 / CAM
-  const water = waterBalance(ind, env);                     // gs, VPD, P50
-  applyStress(ind, water, env);                             // desiccation, frost, heat
+  const env = climate(patch(ind), season, epoch);
+  const light = canopyLight(ind, neighbours(ind)); // Beer–Lambert
+  const A = photosynthesis(ind.pheno, light, env); // FvCB / C4 / CAM
+  const water = waterBalance(ind, env); // gs, VPD, P50
+  applyStress(ind, water, env); // desiccation, frost, heat
   ind.carbon += A - respiration(ind);
-  allocate(ind);                                            // leaf/stem/root/repro
-  hazards(ind, env);                                        // herbivory, fire, buckling
+  allocate(ind); // leaf/stem/root/repro
+  hazards(ind, env); // herbivory, fire, buckling
 }
-const propagules = reproduce(population);                   // mutation, recombination
-disperse(propagules); establish(propagules, landscape);     // establishment lottery
+const propagules = reproduce(population); // mutation, recombination
+disperse(propagules);
+establish(propagules, landscape); // establishment lottery
 ```
 
 ### 7.4 Determinism and reproducibility
@@ -479,16 +502,16 @@ disperse(propagules); establish(propagules, landscape);     // establishment lot
 
 ## 8. Scientific validation and testing
 
-| Test type | Examples |
-|-----------|----------|
-| **Analytical population genetics** (statistical, many replicates) | Neutral fixation probability ≈ 1/(2N); Kimura fixation probability under selection; heterozygosity decay `H_t = H₀(1 − 1/2N)^t`; Hardy-Weinberg proportions without selection; mutation-selection balance ≈ μ/s |
-| **Physiology unit tests** | A-Ci and light-response curves match FvCB with published parameters; C3/C4 crossover temperature moves the right way with CO₂; buckling and hydraulic limits cap height |
-| **Emergence scenarios** | Cuticle spreads under drought and not in permanently wet patches; height increases under dense light competition and is limited by cost; C4 spreads at low CO₂ and high temperature but not at high CO₂ and cool temperature; seeds are favoured as conditions dry |
-| **Macro calibration** (qualitative) | Diversity curves show radiations after key innovations and dips at mass extinctions, compared against Paleobiology Database plant diversity patterns. Calibrate shapes; never fit to force a match. |
-| **Determinism / golden seeds** | Fixed seeds give identical outputs. Regressions show up as snapshot diffs. |
-| **Property-based tests** | Conservation of carbon and water; no negative biomass; allele frequencies always within [0, 1] |
-| **Expert review** | A botanist or paleobotanist reviews each Science Bible chapter before that system ships |
-| **Playtests** | After each phase, check whether players can *explain* outcomes in physiological terms |
+| Test type                                                         | Examples                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Analytical population genetics** (statistical, many replicates) | Neutral fixation probability ≈ 1/(2N); Kimura fixation probability under selection; heterozygosity decay `H_t = H₀(1 − 1/2N)^t`; Hardy-Weinberg proportions without selection; mutation-selection balance ≈ μ/s                                                    |
+| **Physiology unit tests**                                         | A-Ci and light-response curves match FvCB with published parameters; C3/C4 crossover temperature moves the right way with CO₂; buckling and hydraulic limits cap height                                                                                            |
+| **Emergence scenarios**                                           | Cuticle spreads under drought and not in permanently wet patches; height increases under dense light competition and is limited by cost; C4 spreads at low CO₂ and high temperature but not at high CO₂ and cool temperature; seeds are favoured as conditions dry |
+| **Macro calibration** (qualitative)                               | Diversity curves show radiations after key innovations and dips at mass extinctions, compared against Paleobiology Database plant diversity patterns. Calibrate shapes; never fit to force a match.                                                                |
+| **Determinism / golden seeds**                                    | Fixed seeds give identical outputs. Regressions show up as snapshot diffs.                                                                                                                                                                                         |
+| **Property-based tests**                                          | Conservation of carbon and water; no negative biomass; allele frequencies always within [0, 1]                                                                                                                                                                     |
+| **Expert review**                                                 | A botanist or paleobotanist reviews each Science Bible chapter before that system ships                                                                                                                                                                            |
+| **Playtests**                                                     | After each phase, check whether players can _explain_ outcomes in physiological terms                                                                                                                                                                              |
 
 ---
 
@@ -498,6 +521,7 @@ Durations are rough and assume 1–2 developers. Each phase ends with a working,
 testable deliverable and explicit exit criteria. Phases 2–4 can partly overlap.
 
 ### Phase 0: Foundations and Science Bible (1–2 weeks)
+
 1. Settle the open decisions in §11 (audience, platform, art direction).
 2. Set up the monorepo: TypeScript, Vite, pnpm, ESLint, Prettier, Vitest, and GitHub
    Actions CI.
@@ -510,6 +534,7 @@ testable deliverable and explicit exit criteria. Phases 2–4 can partly overlap
 **Exit criteria:** CI green, empty app deployed, Science Bible v0 reviewed.
 
 ### Phase 1: Headless population genetics engine (2–3 weeks)
+
 1. Seeded, splittable PRNG with tests.
 2. Individual-based Wright-Fisher model with mutation, recombination, selection, and
    drift; haploid and diploid.
@@ -519,6 +544,7 @@ testable deliverable and explicit exit criteria. Phases 2–4 can partly overlap
 **Exit criteria:** every analytical test passes within tolerance over many replicates.
 
 ### Phase 2: Plant physiology and life cycle (3–4 weeks)
+
 1. Trait schema, pleiotropy matrix, and genotype-to-phenotype mapping.
 2. Physiology modules: Beer-Lambert light, FvCB photosynthesis, Medlyn stomatal
    conductance, water bucket and desiccation, carbon allocation, and respiration.
@@ -530,6 +556,7 @@ testable deliverable and explicit exit criteria. Phases 2–4 can partly overlap
 single-patch run, cuticle spreads under drought and does not spread in permanent wet.
 
 ### Phase 3: Spatial ecology (3–4 weeks)
+
 1. A patch landscape with moisture, soil, and elevation gradients.
 2. Dispersal kernels, the establishment lottery, and gene flow.
 3. Vertical light competition with mechanical and hydraulic height costs.
@@ -538,6 +565,7 @@ single-patch run, cuticle spreads under drought and does not spread in permanent
 increases under competition and stays bounded by its costs.
 
 ### Phase 4: Morphology and rendering (3–4 weeks, parallel with 2–3)
+
 1. A parametric L-system grammar driven by morphology genes.
 2. A 2D renderer in PixiJS.
 3. Geometry-derived light interception and mechanical load, cached per phenotype.
@@ -548,6 +576,7 @@ increases under competition and stays bounded by its costs.
 morphology measurably changes physiology.
 
 ### Phase 5: Vertical slice, "Leaving the Water" (4–6 weeks)
+
 1. Chapter 1 scenario: a streptophyte alga at a pond margin, through bryophyte-grade
    plants, to early vascular plants.
 2. The full Lineage-mode loop: Mutation Draft, simulation, outcome report with fitness
@@ -561,18 +590,20 @@ physiological terms why their lineage succeeded or failed. **Go/no-go decision o
 scope.**
 
 ### Phase 6: Deep time and macroevolution (4–6 weeks)
+
 1. Data pipeline for environmental time series: CO₂, O₂, temperature, and geography,
    with interpolation and zod validation.
 2. The macro tier: species abstraction, breeder's-equation trait change, and
    birth-death speciation and extinction.
 3. Micro-macro bridge (§4.9), rival clades, and mass-extinction events.
 4. The phylogeny viewer and the geologic timeline screen.
-5. The weathering feedback with its *Coupled* / *Data-locked* switch.
+5. The weathering feedback with its _Coupled_ / _Data-locked_ switch.
 
 **Exit criteria:** a full 500 Myr run meets the performance target, and diversity
 curves show radiations and extinction dips without being scripted.
 
 ### Phase 7: Key innovations expansion (6–8 weeks, iterative)
+
 1. Implement the §5 catalog in era order. For each innovation: prerequisites,
    physiology hooks, rendering, codex entry, and a validation scenario.
 2. Add polyploidy and hybridization.
@@ -581,6 +612,7 @@ curves show radiations and extinction dips without being scripted.
 where theory predicts it shouldn't.
 
 ### Phase 8: Biotic interactions (4–6 weeks)
+
 1. Herbivore guilds and growth-defense trade-offs.
 2. Pollinator coevolution, wind vs. animal pollination, and fruit dispersal.
 3. Mycorrhizal mutualism, pathogens, and the fire regime tied to O₂ and fuel.
@@ -589,6 +621,7 @@ where theory predicts it shouldn't.
 growth-defense trade-offs, shows up in replicate runs.
 
 ### Phase 9: Campaign, education, and science tools (4–6 weeks)
+
 1. Chapters 2–9.
 2. Planet (sandbox) mode and Experiment mode with replicates, confidence intervals,
    and CSV export.
@@ -601,6 +634,7 @@ growth-defense trade-offs, shows up in replicate runs.
 **Exit criteria:** a classroom pilot completed, with feedback incorporated.
 
 ### Phase 10: Polish, performance, accessibility, launch (4–6 weeks)
+
 1. Profiling and optimization (WASM only for proven hotspots).
 2. Accessibility: colour-blind-safe palettes, keyboard navigation, data-table
    alternatives for every chart, and scalable text.
@@ -616,16 +650,16 @@ comes at about 3–4 months.
 
 ## 10. Risks and mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Realism makes it slow, dense, or unfun | Layered complexity (simple views by default, detail on demand); the Phase 5 go/no-go; playtests every phase |
-| Computational cost | The two-tier time model, structure-of-arrays storage, workers, cohort aggregation, and WASM as a last resort |
-| Timescale compression misleads players | Disclose it in the codex and quantify what is compressed |
-| Teleological language creeps in | The style guide (§6.5) and review of all UI copy |
-| Contested science (leaf origins, angiosperm timing, Devonian anoxia links) | Confidence labels in the codex, cited alternatives, and expert review |
-| Scope creep | Phase exit criteria, a vertical slice first, and data-driven content so new material doesn't require engine changes |
-| Data licensing | Check every dataset's license in Phase 0 and prefer openly licensed sources |
-| Cross-browser nondeterminism | Engine-pinned replays or custom maths functions (§7.4) |
+| Risk                                                                       | Mitigation                                                                                                          |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Realism makes it slow, dense, or unfun                                     | Layered complexity (simple views by default, detail on demand); the Phase 5 go/no-go; playtests every phase         |
+| Computational cost                                                         | The two-tier time model, structure-of-arrays storage, workers, cohort aggregation, and WASM as a last resort        |
+| Timescale compression misleads players                                     | Disclose it in the codex and quantify what is compressed                                                            |
+| Teleological language creeps in                                            | The style guide (§6.5) and review of all UI copy                                                                    |
+| Contested science (leaf origins, angiosperm timing, Devonian anoxia links) | Confidence labels in the codex, cited alternatives, and expert review                                               |
+| Scope creep                                                                | Phase exit criteria, a vertical slice first, and data-driven content so new material doesn't require engine changes |
+| Data licensing                                                             | Check every dataset's license in Phase 0 and prefer openly licensed sources                                         |
+| Cross-browser nondeterminism                                               | Engine-pinned replays or custom maths functions (§7.4)                                                              |
 
 ---
 
@@ -651,39 +685,44 @@ These shape everything downstream. Settle them in Phase 0.
 Verify and expand these into BibTeX in `packages/data` during Phase 0.
 
 **Plant evolution and paleobotany**
-- Kenrick, P. & Crane, P. R. (1997). The origin and early evolution of plants on land. *Nature*.
-- Willis, K. J. & McElwain, J. C. (2014). *The Evolution of Plants* (2nd ed.). Oxford University Press.
-- Taylor, T. N., Taylor, E. L. & Krings, M. (2009). *Paleobotany: The Biology and Evolution of Fossil Plants*. Academic Press.
-- Niklas, K. J. (1997). *The Evolutionary Biology of Plants*. University of Chicago Press.
-- Morris, J. L. et al. (2018). The timescale of early land plant evolution. *PNAS*.
-- One Thousand Plant Transcriptomes Initiative (2019). One thousand plant transcriptomes and the phylogenomics of green plants. *Nature*.
-- Beerling, D. J., Osborne, C. P. & Chaloner, W. G. (2001). Evolution of leaf-form in land plants linked to atmospheric CO₂ decline. *Nature*.
-- Sage, R. F., Christin, P.-A. & Edwards, E. J. (2011). The C4 plant lineages of planet Earth. *Journal of Experimental Botany*.
-- Wood, T. E. et al. (2009). The frequency of polyploid speciation in vascular plants. *PNAS*.
-- Algeo, T. J. & Scheckler, S. E. (1998). Terrestrial-marine teleconnections in the Devonian. *Phil. Trans. R. Soc. B*.
-- Sahney, S., Benton, M. J. & Falcon-Lang, H. J. (2010). Rainforest collapse triggered Carboniferous tetrapod diversification. *Geology*.
-- Niklas, K. J., Tiffney, B. H. & Knoll, A. H. (1983). Patterns in vascular land plant diversification. *Nature*.
+
+- Kenrick, P. & Crane, P. R. (1997). The origin and early evolution of plants on land. _Nature_.
+- Willis, K. J. & McElwain, J. C. (2014). _The Evolution of Plants_ (2nd ed.). Oxford University Press.
+- Taylor, T. N., Taylor, E. L. & Krings, M. (2009). _Paleobotany: The Biology and Evolution of Fossil Plants_. Academic Press.
+- Niklas, K. J. (1997). _The Evolutionary Biology of Plants_. University of Chicago Press.
+- Morris, J. L. et al. (2018). The timescale of early land plant evolution. _PNAS_.
+- One Thousand Plant Transcriptomes Initiative (2019). One thousand plant transcriptomes and the phylogenomics of green plants. _Nature_.
+- Beerling, D. J., Osborne, C. P. & Chaloner, W. G. (2001). Evolution of leaf-form in land plants linked to atmospheric CO₂ decline. _Nature_.
+- Sage, R. F., Christin, P.-A. & Edwards, E. J. (2011). The C4 plant lineages of planet Earth. _Journal of Experimental Botany_.
+- Wood, T. E. et al. (2009). The frequency of polyploid speciation in vascular plants. _PNAS_.
+- Algeo, T. J. & Scheckler, S. E. (1998). Terrestrial-marine teleconnections in the Devonian. _Phil. Trans. R. Soc. B_.
+- Sahney, S., Benton, M. J. & Falcon-Lang, H. J. (2010). Rainforest collapse triggered Carboniferous tetrapod diversification. _Geology_.
+- Niklas, K. J., Tiffney, B. H. & Knoll, A. H. (1983). Patterns in vascular land plant diversification. _Nature_.
 
 **Physiology and ecology models**
-- Farquhar, G. D., von Caemmerer, S. & Berry, J. A. (1980). A biochemical model of photosynthetic CO₂ assimilation in leaves of C3 species. *Planta*.
-- Collatz, G. J., Ribas-Carbo, M. & Berry, J. A. (1992). Coupled photosynthesis-stomatal conductance model for leaves of C4 plants. *Aust. J. Plant Physiol.*
-- Medlyn, B. E. et al. (2011). Reconciling the optimal and empirical approaches to modelling stomatal conductance. *Global Change Biology*.
-- Wright, I. J. et al. (2004). The worldwide leaf economics spectrum. *Nature*.
-- Koch, G. W. et al. (2004). The limits to tree height. *Nature*.
-- Belcher, C. M. & McElwain, J. C. (2008). Limits for combustion in low O₂ redefine paleoatmospheric predictions for the Mesozoic. *Science*.
-- Prusinkiewicz, P. & Lindenmayer, A. (1990). *The Algorithmic Beauty of Plants*. Springer.
+
+- Farquhar, G. D., von Caemmerer, S. & Berry, J. A. (1980). A biochemical model of photosynthetic CO₂ assimilation in leaves of C3 species. _Planta_.
+- Collatz, G. J., Ribas-Carbo, M. & Berry, J. A. (1992). Coupled photosynthesis-stomatal conductance model for leaves of C4 plants. _Aust. J. Plant Physiol._
+- Medlyn, B. E. et al. (2011). Reconciling the optimal and empirical approaches to modelling stomatal conductance. _Global Change Biology_.
+- Wright, I. J. et al. (2004). The worldwide leaf economics spectrum. _Nature_.
+- Koch, G. W. et al. (2004). The limits to tree height. _Nature_.
+- Belcher, C. M. & McElwain, J. C. (2008). Limits for combustion in low O₂ redefine paleoatmospheric predictions for the Mesozoic. _Science_.
+- Prusinkiewicz, P. & Lindenmayer, A. (1990). _The Algorithmic Beauty of Plants_. Springer.
 
 **Earth history**
-- Berner, R. A. (2006). GEOCARBSULF: a combined model for Phanerozoic atmospheric O₂ and CO₂. *Geochim. Cosmochim. Acta*.
-- Foster, G. L., Royer, D. L. & Lunt, D. J. (2017). Future climate forcing potentially without precedent in the last 420 million years. *Nature Communications*.
-- Judd, E. J. et al. (2024). A 485-million-year history of Earth's surface temperature. *Science*.
+
+- Berner, R. A. (2006). GEOCARBSULF: a combined model for Phanerozoic atmospheric O₂ and CO₂. _Geochim. Cosmochim. Acta_.
+- Foster, G. L., Royer, D. L. & Lunt, D. J. (2017). Future climate forcing potentially without precedent in the last 420 million years. _Nature Communications_.
+- Judd, E. J. et al. (2024). A 485-million-year history of Earth's surface temperature. _Science_.
 
 **Population and quantitative genetics**
-- Kimura, M. (1962). On the probability of fixation of mutant genes in a population. *Genetics*.
-- Lande, R. (1979). Quantitative genetic analysis of multivariate evolution, applied to brain:body size allometry. *Evolution*.
-- Orr, H. A. (1995). The population genetics of speciation: the evolution of hybrid incompatibilities. *Genetics*.
+
+- Kimura, M. (1962). On the probability of fixation of mutant genes in a population. _Genetics_.
+- Lande, R. (1979). Quantitative genetic analysis of multivariate evolution, applied to brain:body size allometry. _Evolution_.
+- Orr, H. A. (1995). The population genetics of speciation: the evolution of hybrid incompatibilities. _Genetics_.
 
 **Data sources (check licenses)**
+
 - Paleobiology Database (paleobiodb.org): fossil occurrences and diversity curves.
 - Open Tree of Life: a reference phylogeny for comparison views.
 - APG IV (2016) and PPG I (2016): classification of angiosperms, ferns, and lycophytes.
@@ -694,8 +733,16 @@ Verify and expand these into BibTeX in `packages/data` during Phase 0.
 
 ## 13. Immediate next steps
 
-1. Answer the open decisions in §11.
-2. Scaffold the monorepo and CI (Phase 0, steps 2–3).
-3. Write the first Science Bible chapter: *Population genetics core*, with the exact
-   model, parameters, and the analytical tests it must pass.
-4. Build the seeded PRNG and Wright-Fisher engine, test-first (Phase 1).
+Phase 2 (physiology and life cycle):
+
+1. **Owner decisions:** choose a license (this decides which datasets can be bundled; see
+   ADR 0005), confirm or change the other defaults, enable GitHub Pages (Settings → Pages →
+   Source: GitHub Actions), and find a reviewer for Science Bible chapters 01–02.
+2. Write Science Bible chapters 03 (physiology) and 04 (life cycle): models, parameters with
+   sources, simplifications, and the response curves the code must reproduce.
+3. Build the trait schema and the genotype-to-phenotype map with developmental modules and
+   pleiotropy, on top of the Phase 1 engine.
+4. Implement the physiology modules test-first against published response curves.
+5. Replace the placeholder fitness models with fitness measured from the simulated life cycle.
+   Exit check: in a single patch, cuticle spreads under drought and does not spread where it is
+   permanently wet.

@@ -65,9 +65,8 @@ export function App() {
       ))}
 
       <footer className="site-footer">
-        Plant-evo is open source. Read the{' '}
-        <a href="https://github.com/Bradley100805/Plant-evo">development plan and Science Bible</a>{' '}
-        for the models, equations and sources behind the simulation.
+        The models, equations and sources behind the simulation are documented in the{' '}
+        <a href="https://github.com/Bradley100805/Plant-evo">development plan and Science Bible</a>.
       </footer>
     </div>
   );

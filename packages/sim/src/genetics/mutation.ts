@@ -26,7 +26,7 @@ export function oneWay(target = 1): MutationModel {
 }
 
 /**
- * Continuum-of-alleles model (Crow & Kimura 1964; Lande 1975): the mutant's value is its
+ * Continuum-of-alleles model (Kimura 1965; Lande 1975): the mutant's value is its
  * parent's value plus a normal deviate with standard deviation `sd`.
  */
 export function gaussianIncrement(sd: number): MutationModel {

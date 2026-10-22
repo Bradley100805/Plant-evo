@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@plant-evo/morph": "workspace:*",
     "@plant-evo/sim": "workspace:*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

@@ -44,6 +44,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@plant-evo/morph':
+        specifier: workspace:*
+        version: link:../../packages/morph
       '@plant-evo/sim':
         specifier: workspace:*
         version: link:../../packages/sim

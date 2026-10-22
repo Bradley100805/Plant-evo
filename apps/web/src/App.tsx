@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { DriftLab } from './lab/DriftLab.tsx';
-import { MutantLab } from './lab/MutantLab.tsx';
+import { GameApp } from './game/GameApp.tsx';
+import { Lab } from './lab/Lab.tsx';
 
-const TABS = [
-  { id: 'drift', label: 'Genetic drift', Panel: DriftLab },
-  { id: 'mutation', label: 'A new mutation', Panel: MutantLab },
+const SECTIONS = [
+  { id: 'play', label: 'Play' },
+  { id: 'lab', label: 'Genetics lab' },
 ] as const;
 
-type TabId = (typeof TABS)[number]['id'];
+type SectionId = (typeof SECTIONS)[number]['id'];
 
 export function App() {
-  const [tab, setTab] = useState<TabId>('drift');
+  const [section, setSection] = useState<SectionId>('play');
 
   return (
     <div className="page">
@@ -24,45 +24,29 @@ export function App() {
           <h1>Plant-evo</h1>
           <p className="tagline">The evolution of land plants, simulated from first principles</p>
         </div>
+        <nav className="site-nav" aria-label="Sections">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              aria-current={section === s.id ? 'page' : undefined}
+              onClick={() => setSection(s.id)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
       </header>
 
-      <section className="intro">
-        <span className="phase-badge">Phase 1 preview · Population genetics lab</span>
-        <p>
-          Plant-evo will let you follow plant lineages from freshwater algae to modern grasslands.
-          Nothing is scripted: <strong>variation is random and selection decides</strong>. This lab
-          runs the engine that will drive every lineage in the game. Each experiment is checked
-          against classic population-genetics theory, and every run is seeded, so the same seed
-          always gives the same result.
-        </p>
-      </section>
-
-      <nav className="tabs" role="tablist" aria-label="Lab experiments">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            id={`tab-${t.id}`}
-            aria-selected={tab === t.id}
-            aria-controls={`panel-${t.id}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {TABS.map(({ id, Panel }) => (
-        <div
-          key={id}
-          role="tabpanel"
-          id={`panel-${id}`}
-          aria-labelledby={`tab-${id}`}
-          hidden={tab !== id}
-        >
-          {tab === id && <Panel />}
-        </div>
-      ))}
+      {/* The game stays mounted while the lab is open so its simulation is not lost. */}
+      <main hidden={section !== 'play'}>
+        <GameApp />
+      </main>
+      {section === 'lab' && (
+        <main>
+          <Lab />
+        </main>
+      )}
 
       <footer className="site-footer">
         The models, equations and sources behind the simulation are documented in the{' '}

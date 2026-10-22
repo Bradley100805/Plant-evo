@@ -53,12 +53,15 @@ export function StatTile({ label, value, note }: { label: string; value: string;
 export function DataTable({
   columns,
   rows,
+  className,
 }: {
   columns: readonly string[];
   rows: readonly (readonly (string | number)[])[];
+  /** 'text' left-aligns every column, for tables of words rather than numbers. */
+  className?: 'text';
 }) {
   return (
-    <div className="table-wrap">
+    <div className={className === undefined ? 'table-wrap' : `table-wrap ${className}`}>
       <table>
         <thead>
           <tr>

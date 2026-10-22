@@ -117,9 +117,10 @@ export interface ModuleDef {
 export const MODULES: readonly ModuleDef[] = [
   {
     // Lignin and sporopollenin both draw on phenylpropanoid metabolism (Weng & Chapple 2010).
+    // Lignified walls both conduct water and stiffen axes, so the module also supports stature.
     id: 'phenylpropanoid',
     label: 'Phenylpropanoid metabolism',
-    loadings: { vascular: 0.6, sporeWall: 0.6 },
+    loadings: { vascular: 0.6, sporeWall: 0.4, stature: 0.4 },
   },
   {
     // Cutin and the spore-wall's aliphatic components are both lipid polyesters.

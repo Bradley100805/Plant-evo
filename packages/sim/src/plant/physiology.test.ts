@@ -34,11 +34,11 @@ describe('surface conductances', () => {
   });
 });
 
-describe('cuticle', () => {
+describe('cuticle (sporophyte, where it is fully expressed)', () => {
   it('reduces carbon gain under water, where there is no water to save', () => {
-    const bare = monthBalance(gametophyteBody(traits()), climate, submerged, atm, 900);
+    const bare = monthBalance(sporophyteBody(traits(), 0.001), climate, submerged, atm, 900);
     const waxy = monthBalance(
-      gametophyteBody(traits({ cuticle: 0.8 })),
+      sporophyteBody(traits({ cuticle: 0.8 }), 0.001),
       climate,
       submerged,
       atm,
@@ -49,15 +49,21 @@ describe('cuticle', () => {
 
   it('reduces carbon gain when surfaces are always wet', () => {
     const wet = { ...climate, rainWet: 1 };
-    const bare = monthBalance(gametophyteBody(traits()), wet, damp, atm, 900);
-    const waxy = monthBalance(gametophyteBody(traits({ cuticle: 0.8 })), wet, damp, atm, 900);
+    const bare = monthBalance(sporophyteBody(traits(), 0.001), wet, damp, atm, 900);
+    const waxy = monthBalance(sporophyteBody(traits({ cuticle: 0.8 }), 0.001), wet, damp, atm, 900);
     expect(bare.hydration).toBe(1);
     expect(waxy.carbonPerArea).toBeLessThan(bare.carbonPerArea);
   });
 
   it('keeps tissue hydrated and alive as the ground dries', () => {
-    const bare = monthBalance(gametophyteBody(traits()), climate, dry, atm, 900);
-    const waxy = monthBalance(gametophyteBody(traits({ cuticle: 0.7 })), climate, dry, atm, 900);
+    const bare = monthBalance(sporophyteBody(traits(), 0.001), climate, dry, atm, 900);
+    const waxy = monthBalance(
+      sporophyteBody(traits({ cuticle: 0.7 }), 0.001),
+      climate,
+      dry,
+      atm,
+      900,
+    );
     expect(waxy.hydration).toBeGreaterThan(bare.hydration + 0.5);
     expect(waxy.survival).toBeGreaterThan(bare.survival + 0.5);
   });
@@ -150,5 +156,12 @@ describe('growth', () => {
     const body = gametophyteBody(traits());
     const balance = monthBalance(body, climate, damp, atm, 0);
     expect(biomassChange(body, balance, 1, 0.01)).toBeLessThan(0);
+  });
+});
+
+describe('gametophyte', () => {
+  it('expresses its cuticle genes more weakly than the sporophyte', () => {
+    const t = traits({ cuticle: 0.8 });
+    expect(gametophyteBody(t).gSurface).toBeGreaterThan(sporophyteBody(t, 0.001).gSurface);
   });
 });

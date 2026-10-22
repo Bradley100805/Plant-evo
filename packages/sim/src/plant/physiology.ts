@@ -118,9 +118,16 @@ function leafFor(desiccationTolerance: number): LeafTraits {
   };
 }
 
+/**
+ * Strength of cuticle expression in the gametophyte relative to the sporophyte. Bryophyte
+ * gametophytes are covered by much thinner cuticles than sporophytes and depend mostly on
+ * external water.
+ */
+export const GAMETOPHYTE_CUTICLE_EXPRESSION = 0.5;
+
 /** The haploid gametophyte: a prostrate thallus without stomata or vascular tissue. */
 export function gametophyteBody(traits: Float64Array): Body {
-  const c = traits[T.cuticle];
+  const c = GAMETOPHYTE_CUTICLE_EXPRESSION * traits[T.cuticle];
   const r = traits[T.rooting];
   const dt = traits[T.desiccationTolerance];
   return {
@@ -307,6 +314,17 @@ export const GRAMS_PER_UMOL = (12e-6 / 0.45) * 0.75;
 
 /** Light-extinction coefficient for plant tissue (Monsi & Saeki 1953). */
 export const CANOPY_K = 0.7;
+
+/**
+ * Largest photosynthetic area index a body keeps. Tissue shaded below its light compensation
+ * point is shed, so real canopies and moss mats stay at area indices of roughly 3–8.
+ */
+export const MAX_AREA_INDEX = 4;
+
+/** Biomass (g) at which a body reaches {@link MAX_AREA_INDEX} over `area` m². */
+export function maxBiomass(body: Body, area: number): number {
+  return (MAX_AREA_INDEX * body.lma * area) / body.photoFraction;
+}
 
 /** Photosynthetic area index of a body of `biomass` grams spread over `area` m². */
 export function areaIndex(body: Body, biomass: number, area: number): number {

@@ -14,9 +14,12 @@
  *      sporophyte-development trait, and photosynthesises for itself as that trait allows.
  *   5. In months 5 (end of the wet season) and 11 (end of the dry season) sporophytes release
  *      meiotic spores and gametophytes release asexual propagules.
- *   6. Spores disperse locally and, from taller sporophytes, across the whole landscape.
- *      Propagules only move short distances through wet ground. Each cell is won by one arrival,
- *      drawn in proportion to the viable propagules reaching it.
+ *   6. Bodies alive at the end of the year may perennate and keep their cell: a sporophyte in
+ *      proportion to its independence (sporophyte trait), a gametophyte with a fixed chance,
+ *      both subject to random disturbance.
+ *   7. Spores disperse locally and, from taller sporophytes, across the whole landscape.
+ *      Propagules only move short distances through wet ground. Each free cell is won by one
+ *      arrival, drawn in proportion to the viable propagules reaching it.
  *
  * Fitness is never computed directly: it is whatever survives, gets fertilised and disperses.
  */
@@ -36,6 +39,7 @@ import {
   biomassChange,
   CANOPY_K,
   gametophyteBody,
+  maxBiomass,
   monthBalance,
   type SiteMonth,
   sporophyteBody,
@@ -78,10 +82,22 @@ export const LIFE = {
   sporeScale: 1.5,
   propaguleRadius: 2,
   propaguleScale: 0.8,
-  /** Release height (m) at which half of the spores escape into the landscape-wide spore rain. */
+  /** Release height (m) at which half of the spores escape the parent's own patch. */
+  escapeHeight: 0.005,
+  /** Release height (m) at which half of the escaping spores join the landscape-wide spore rain. */
   windHeight: 0.05,
   /** Weight of the gametophyte itself among potential fathers (bisexual gametophytes can self). */
   selfingWeight: 0.5,
+  /** Yearly chance that disturbance (floods, erosion, burial) clears a surviving occupant. */
+  disturbance: 0.08,
+  /** Fraction of biomass a perennating body carries into the next year. */
+  carryOver: 0.8,
+  /** Chance that a gametophyte alive at the end of the year perennates (before disturbance). */
+  gametophytePerennation: 0.6,
+  /** Share of a neighbour's canopy that overhangs a cell when fully overtopping it. */
+  canopyOverlap: 0.3,
+  /** Height advantage (m) at which a neighbour fully overtops a cell. */
+  overtopHeight: 0.02,
 } as const;
 
 export const DEATH_CAUSES = [
@@ -104,7 +120,12 @@ export interface WorldOptions {
 
 export interface ZoneStats {
   cells: number;
+  /** Individuals present this year (new arrivals plus perennials). */
   established: number;
+  /** Individuals carried over from last year. */
+  perennial: number;
+  /** Mean of the tallest height reached by each sporophyte in the zone, m (0 if none). */
+  sporophyteHeight: number;
   /** Gametophytes alive at the end of the year. */
   survived: number;
   fertilised: number;
@@ -136,6 +157,13 @@ export interface WorldSnapshot {
   genomes: Uint32Array;
   occupied: Uint8Array;
   origin: Uint8Array;
+  perennateG: Uint8Array;
+  perennateS: Uint8Array;
+  carryG: Float64Array;
+  carryS: Float64Array;
+  lastEstablished: Uint8Array;
+  lastReproduced: Uint8Array;
+  lastHeight: Float64Array;
   alleles: AlleleTableState;
   pins: [string, number][];
   rng: Record<string, RngState>;
@@ -185,6 +213,10 @@ export class World {
   readonly occupied: Uint8Array;
   /** How the occupant arrived: 0 spore, 1 asexual propagule. */
   readonly origin: Uint8Array;
+  /** Last completed year, per cell: 1 if an individual established. */
+  readonly lastEstablished: Uint8Array;
+  /** Last completed year, per cell: 1 if its occupant released spores or propagules. */
+  readonly lastReproduced: Uint8Array;
 
   // Per-year state.
   readonly gTraits: Float64Array;
@@ -207,6 +239,13 @@ export class World {
   private readonly propagules: Float64Array;
   private readonly releaseHeight: Float64Array;
   private readonly shade: Float64Array;
+  /** Set at the end of a year: which bodies perennate, and the biomass they carry. */
+  private readonly perennateG: Uint8Array;
+  private readonly perennateS: Uint8Array;
+  private readonly carryG: Float64Array;
+  private readonly carryS: Float64Array;
+  /** Sporophyte biomass after its last spore release (or at the start of its life). */
+  private readonly sReleaseBase: Float64Array;
 
   private readonly crossover: Float64Array;
   private readonly schedule: MutationSchedule;
@@ -239,6 +278,8 @@ export class World {
     this.next = new Uint32Array(n * 2 * this.loci);
     this.occupied = new Uint8Array(n);
     this.origin = new Uint8Array(n);
+    this.lastEstablished = new Uint8Array(n);
+    this.lastReproduced = new Uint8Array(n);
     this.gTraits = new Float64Array(n * TRAIT_COUNT);
     this.sTraits = new Float64Array(n * TRAIT_COUNT);
     this.gBiomass = new Float64Array(n);
@@ -258,6 +299,11 @@ export class World {
     this.propagules = new Float64Array(n * 2);
     this.releaseHeight = new Float64Array(n);
     this.shade = new Float64Array(n);
+    this.perennateG = new Uint8Array(n);
+    this.perennateS = new Uint8Array(n);
+    this.carryG = new Float64Array(n);
+    this.carryS = new Float64Array(n);
+    this.sReleaseBase = new Float64Array(n);
 
     this.crossover = crossoverRates(0.5, this.loci);
     this.schedule = uniformSchedule(this.loci, options.mutationRate);
@@ -284,6 +330,11 @@ export class World {
       this.occupied[c] = where(c) ? 1 : 0;
       this.origin[c] = PROPAGULE;
     }
+  }
+
+  /** Current genomes, read-only by convention: `[(cell * 2 + copy) * loci + locus]`. */
+  get genomeView(): Uint32Array {
+    return this.genomes;
   }
 
   get population(): number {
@@ -336,11 +387,12 @@ export class World {
             const toPropagules = 0.5 * traits[T.asexual] * change;
             this.propaguleStore[c] += toPropagules;
             if (this.sAlive[c] === 1 && m > this.fertilisedMonth[c]) {
-              transfer = 0.5 * this.sTraits[c * TRAIT_COUNT + T.sporophyte] * change;
+              // Nourishing a retained embryo needs a placenta-like interface that develops with it.
+              transfer = 0.5 * this.sTraits[c * TRAIT_COUNT + T.sporophyte] ** 2 * change;
             }
             change -= toPropagules + transfer;
           }
-          this.gBiomass[c] += change;
+          this.gBiomass[c] = Math.min(this.gBiomass[c] + change, maxBiomass(body, area));
           this.gPai[c] = areaIndex(body, this.gBiomass[c], area);
           if (rng.float() >= balance.survival) this.killGametophyte(c, 0, zones, env);
           else if (this.gBiomass[c] < 0.25 * LIFE.startFromSpore)
@@ -355,7 +407,7 @@ export class World {
           const balance = monthBalance(body, climate, site, atm, light, fromGametophyte);
           // An undeveloped sporophyte (a walled zygote) is metabolically almost inert.
           const own = k * biomassChange(body, balance, this.sBiomass[c], area);
-          this.sBiomass[c] += own + transfer;
+          this.sBiomass[c] = Math.min(this.sBiomass[c] + own + transfer, maxBiomass(body, area));
           this.sHeight[c] = sporophyteHeight(traits, this.sBiomass[c]);
           this.sMaxHeight[c] = Math.max(this.sMaxHeight[c], this.sHeight[c]);
           this.sPai[c] = k * areaIndex(body, this.sBiomass[c], area);
@@ -371,6 +423,16 @@ export class World {
     }
 
     const report = this.summarise(zones, env);
+    this.decidePerennation();
+    for (let c = 0; c < n; c++) {
+      this.lastEstablished[c] = this.occupied[c];
+      const released =
+        this.spores[2 * c] +
+        this.spores[2 * c + 1] +
+        this.propagules[2 * c] +
+        this.propagules[2 * c + 1];
+      this.lastReproduced[c] = released > 0 ? 1 : 0;
+    }
     this.disperse(env);
     this.generation++;
     if (this.alleles.count > 4 * this.cells * this.loci + 4096) this.compactAlleles();
@@ -381,17 +443,27 @@ export class World {
     const out = this.liab;
     for (let c = 0; c < this.cells; c++) {
       const occupied = this.occupied[c] === 1;
-      this.gAlive[c] = occupied ? 1 : 0;
-      this.sAlive[c] = 0;
-      this.fertilised[c] = 0;
-      this.fertilisedMonth[c] = -1;
+      const perennial = occupied && (this.perennateG[c] === 1 || this.perennateS[c] === 1);
       this.cause[c] = 0;
-      this.gBiomass[c] = occupied
-        ? this.origin[c] === SPORE
-          ? LIFE.startFromSpore
-          : LIFE.startFromPropagule
-        : 0;
-      this.sBiomass[c] = 0;
+      this.fertilisedMonth[c] = -1;
+      if (perennial) {
+        this.gAlive[c] = this.perennateG[c];
+        this.gBiomass[c] = this.perennateG[c] === 1 ? this.carryG[c] : 0;
+        this.sAlive[c] = this.perennateS[c];
+        this.fertilised[c] = this.perennateS[c];
+        this.sBiomass[c] = this.perennateS[c] === 1 ? this.carryS[c] : 0;
+        this.sReleaseBase[c] = this.sBiomass[c];
+      } else {
+        this.gAlive[c] = occupied ? 1 : 0;
+        this.gBiomass[c] = occupied
+          ? this.origin[c] === SPORE
+            ? LIFE.startFromSpore
+            : LIFE.startFromPropagule
+          : 0;
+        this.sAlive[c] = 0;
+        this.fertilised[c] = 0;
+        this.sBiomass[c] = 0;
+      }
       this.sHeight[c] = 0;
       this.sMaxHeight[c] = 0;
       this.gHydration[c] = 1;
@@ -405,6 +477,58 @@ export class World {
       zones[env.zone[c]].established++;
       liabilities(this.arch, this.genomes, this.offset(c, 0), -1, this.alleles.values, out);
       phenotype(this.bases, out, this.gTraits.subarray(c * TRAIT_COUNT, (c + 1) * TRAIT_COUNT));
+      if (perennial) {
+        zones[env.zone[c]].perennial++;
+        if (this.perennateS[c] === 1) {
+          const traits = this.sTraits.subarray(c * TRAIT_COUNT, (c + 1) * TRAIT_COUNT);
+          liabilities(
+            this.arch,
+            this.genomes,
+            this.offset(c, 0),
+            this.offset(c, 1),
+            this.alleles.values,
+            out,
+          );
+          phenotype(this.bases, out, traits);
+          this.sHeight[c] = sporophyteHeight(traits, this.sBiomass[c]);
+          this.sPai[c] =
+            traits[T.sporophyte] *
+            areaIndex(
+              sporophyteBody(traits, this.sBiomass[c]),
+              this.sBiomass[c],
+              this.landscape.cellArea,
+            );
+        }
+      }
+    }
+  }
+
+  /**
+   * Which bodies survive into next year. A sporophyte can perennate in proportion to its
+   * independence from the gametophyte. A gametophyte that came through the year alive
+   * (which, out of the water, takes desiccation tolerance or homoiohydry) perennates with a
+   * fixed chance.
+   */
+  private decidePerennation(): void {
+    const rng = this.rng.life;
+    const keep = 1 - LIFE.disturbance;
+    for (let c = 0; c < this.cells; c++) {
+      this.perennateG[c] = 0;
+      this.perennateS[c] = 0;
+      if (this.occupied[c] === 0) continue;
+      if (this.sAlive[c] === 1) {
+        const k = this.sTraits[c * TRAIT_COUNT + T.sporophyte];
+        if (rng.float() < k * keep) {
+          this.perennateS[c] = 1;
+          this.carryS[c] = LIFE.carryOver * this.sBiomass[c];
+        }
+      }
+      if (this.gAlive[c] === 1) {
+        if (rng.float() < LIFE.gametophytePerennation * keep) {
+          this.perennateG[c] = 1;
+          this.carryG[c] = LIFE.carryOver * this.gBiomass[c];
+        }
+      }
     }
   }
 
@@ -428,7 +552,8 @@ export class World {
           if (this.sAlive[j] === 0) continue;
           const hj = this.sHeight[j];
           if (hj <= own) continue;
-          shade += 0.125 * this.sPai[j] * Math.min(1, (hj - own) / hj);
+          // A taller neighbour's canopy leans over this cell, more so the more it overtops it.
+          shade += LIFE.canopyOverlap * this.sPai[j] * Math.min(1, (hj - own) / LIFE.overtopHeight);
         }
       }
       this.shade[c] = shade;
@@ -488,6 +613,7 @@ export class World {
       this.fertilisedMonth[c] = month;
       this.sAlive[c] = 1;
       this.sBiomass[c] = LIFE.zygoteBiomass;
+      this.sReleaseBase[c] = LIFE.zygoteBiomass;
       zones[env.zone[c]].fertilised++;
       liabilities(this.arch, this.genomes, this.offset(c, 0), dst, this.alleles.values, out);
       phenotype(this.bases, out, this.sTraits.subarray(c * TRAIT_COUNT, (c + 1) * TRAIT_COUNT));
@@ -499,11 +625,14 @@ export class World {
       const z = zones[env.zone[c]];
       if (this.sAlive[c] === 1) {
         const traits = this.sTraits.subarray(c * TRAIT_COUNT, (c + 1) * TRAIT_COUNT);
+        // A share of the growth made since the last release goes into sporangia; a perennial
+        // keeps the rest, so it can build up size over the years.
         const allocation = 0.25 + 0.25 * traits[T.branching];
-        const spare = Math.max(0, this.sBiomass[c] - LIFE.zygoteBiomass);
+        const spare = Math.max(0, this.sBiomass[c] - this.sReleaseBase[c]);
         const cost = LIFE.sporeMass * (1 + LIFE.sporeWallCost * traits[T.sporeWall]);
         const count = (index === 0 ? LIFE.zygoticMeiospores : 0) + (allocation * spare) / cost;
         this.sBiomass[c] -= allocation * spare;
+        this.sReleaseBase[c] = this.sBiomass[c];
         this.spores[2 * c + index] = count;
         this.releaseHeight[c] = Math.max(this.releaseHeight[c], this.sHeight[c]);
         z.spores += count;
@@ -573,18 +702,23 @@ export class World {
         const wall = this.sTraits[p * TRAIT_COUNT + T.sporeWall];
         const dormancy = sporeDormancySurvival(wall);
         const h = this.releaseHeight[p];
-        const windborne = h / (h + LIFE.windHeight);
-        const local = 1 - windborne;
+        // Spores shed at mat level are mostly trapped in the parent's own patch; raising the
+        // sporangia lets them escape into moving air. Under water, currents carry them off.
+        const submerged = env.depth[p * MONTHS + LIFE.releaseMonths[0]] > 0;
+        const escape = submerged ? 1 : h / (h + LIFE.escapeHeight);
+        const windborne = escape * (h / (h + LIFE.windHeight));
+        const local = escape - windborne;
         const nearby = 0.3 + 0.7 * wall;
+        const survive = (c: number) => 1 - env.dryExposure[c] * (1 - dormancy);
+        offer(p, p, SPORE, (1 - escape) * nearby * germination[p] * (s1 + s0 * survive(p)));
         for (const o of SPORE_KERNEL) {
           const nx = x + o.dx;
           const ny = y + o.dy;
           if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
           const c = ny * width + nx;
-          const survive = 1 - env.dryExposure[c] * (1 - dormancy);
-          offer(c, p, SPORE, local * o.weight * nearby * germination[c] * (s1 + s0 * survive));
+          offer(c, p, SPORE, local * o.weight * nearby * germination[c] * (s1 + s0 * survive(c)));
         }
-        const airborne = (0.05 + 0.95 * wall) ** 1.5;
+        const airborne = 0.1 + 0.9 * wall;
         globalWeights[p] = windborne * airborne * (s1 + s0 * dormancy);
         globalTotal += globalWeights[p];
       }
@@ -617,10 +751,16 @@ export class World {
     const L = this.loci;
     const birth = this.generation + 1;
     for (let c = 0; c < n; c++) {
+      const dst = this.offset(c, 0);
+      if (this.perennateG[c] === 1 || this.perennateS[c] === 1) {
+        // A perennial keeps its cell (and its genome); arriving propagules find no room.
+        this.next.set(this.genomes.subarray(dst, dst + 2 * L), dst);
+        this.occupied[c] = 1;
+        continue;
+      }
       const parent = pickParent[c];
       const established = parent >= 0 && rng.float() < 1 - Math.exp(-LIFE.establishment * total[c]);
       this.occupied[c] = established ? 1 : 0;
-      const dst = this.offset(c, 0);
       if (!established) {
         // Empty cells hold founder ids (id = locus) so no stale ids survive compaction.
         for (let l = 0; l < L; l++) this.next[dst + l] = this.next[dst + L + l] = l;
@@ -661,6 +801,7 @@ export class World {
 
   private summarise(zones: ZoneStats[], env: Environment): YearReport {
     const traitSums = new Float64Array(TRAIT_COUNT);
+    const sporophytesByZone = new Float64Array(ZONE_COUNT);
     let population = 0;
     let fertilised = 0;
     let heightSum = 0;
@@ -671,9 +812,15 @@ export class World {
       if (this.fertilised[c] === 1) {
         fertilised++;
         heightSum += this.sMaxHeight[c];
+        zones[env.zone[c]].sporophyteHeight += this.sMaxHeight[c];
+        sporophytesByZone[env.zone[c]]++;
       }
       if (this.gAlive[c] === 1) zones[env.zone[c]].survived++;
     }
+    // Averaged over every sporophyte present, including perennials from earlier years.
+    zones.forEach((z, i) => {
+      z.sporophyteHeight = sporophytesByZone[i] > 0 ? z.sporophyteHeight / sporophytesByZone[i] : 0;
+    });
     return {
       generation: this.generation,
       population,
@@ -779,6 +926,13 @@ export class World {
       genomes: this.genomes.slice(),
       occupied: this.occupied.slice(),
       origin: this.origin.slice(),
+      perennateG: this.perennateG.slice(),
+      perennateS: this.perennateS.slice(),
+      carryG: this.carryG.slice(),
+      carryS: this.carryS.slice(),
+      lastEstablished: this.lastEstablished.slice(),
+      lastReproduced: this.lastReproduced.slice(),
+      lastHeight: this.sMaxHeight.slice(),
       alleles: this.alleles.exportState(),
       pins: [...this.pins],
       rng: Object.fromEntries(Object.entries(this.rng).map(([k, r]) => [k, r.getState()])),
@@ -795,6 +949,13 @@ export class World {
     world.genomes.set(snapshot.genomes);
     world.occupied.set(snapshot.occupied);
     world.origin.set(snapshot.origin);
+    world.perennateG.set(snapshot.perennateG);
+    world.perennateS.set(snapshot.perennateS);
+    world.carryG.set(snapshot.carryG);
+    world.carryS.set(snapshot.carryS);
+    world.lastEstablished.set(snapshot.lastEstablished);
+    world.lastReproduced.set(snapshot.lastReproduced);
+    world.sMaxHeight.set(snapshot.lastHeight);
     world.alleles = AlleleTable.fromState(snapshot.alleles);
     for (const [name, id] of snapshot.pins) world.pins.set(name, id);
     for (const [key, state] of Object.entries(snapshot.rng)) {
@@ -813,6 +974,8 @@ function emptyZoneStats(): ZoneStats {
   return {
     cells: 0,
     established: 0,
+    perennial: 0,
+    sporophyteHeight: 0,
     survived: 0,
     fertilised: 0,
     reproduced: 0,

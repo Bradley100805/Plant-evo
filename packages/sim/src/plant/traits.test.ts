@@ -42,7 +42,8 @@ describe('genome architecture', () => {
     liabilities(arch, genome, 0, arch.loci, alleles.values, out);
     expect(out[T.cuticle]).toBe(1);
     expect(out[T.vascular]).toBeCloseTo(0.6, 12);
-    expect(out[T.sporeWall]).toBeCloseTo(0.6, 12);
+    expect(out[T.sporeWall]).toBeCloseTo(0.4, 12);
+    expect(out[T.stature]).toBeCloseTo(0.4, 12);
     expect(out[T.stomata]).toBe(0);
 
     liabilities(arch, genome, 0, -1, alleles.values, out);

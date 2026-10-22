@@ -8,6 +8,7 @@ import {
   sweepExperiment,
   truncationExperiment,
 } from '@plant-evo/sim';
+import { playChapter, type Strategy, STRATEGIES } from './play.ts';
 
 interface OptionSpec {
   default: number | string;
@@ -122,6 +123,22 @@ export const commands: Record<string, Command> = {
         },
         onProgress,
       ),
+  },
+};
+
+commands.play = {
+  summary: 'Play a whole chapter headlessly with a scripted strategy',
+  options: {
+    ...common,
+    scenario: { default: 'leaving-the-water', help: 'Scenario id' },
+    strategy: { default: 'planned', help: `One of: ${STRATEGIES.join(', ')}` },
+  },
+  run: (v, onProgress) => {
+    const strategy = String(v.strategy);
+    if (!(STRATEGIES as readonly string[]).includes(strategy)) {
+      throw new UsageError(`--strategy must be one of ${STRATEGIES.join(', ')}.`);
+    }
+    return playChapter(String(v.scenario), String(v.seed), strategy as Strategy, onProgress);
   },
 };
 

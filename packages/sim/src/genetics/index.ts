@@ -60,3 +60,11 @@ export {
   mutationSelectionBalance,
 } from './theory.ts';
 export { geneticValues } from './traits.ts';
+export {
+  crossoverRates,
+  mutateCopy,
+  type MutationSchedule,
+  recombineCopy,
+  scheduleFromRates,
+  uniformSchedule,
+} from './transmission.ts';

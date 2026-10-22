@@ -1,6 +1,7 @@
 import { Rng, type Seed } from '../rng/index.ts';
 import { AlleleTable, NO_PARENT } from './alleles.ts';
 import { type MutationModel, neutralRelabel } from './mutation.ts';
+import { crossoverRates, type MutationSchedule, uniformSchedule } from './transmission.ts';
 
 export type Ploidy = 1 | 2;
 export type ReproductionMode = 'sexual' | 'clonal';
@@ -56,6 +57,7 @@ export class Population {
   readonly ploidy: Ploidy;
   readonly loci: number;
   readonly mutationRate: number;
+  readonly mutationSchedule: MutationSchedule;
   readonly mutation: MutationModel;
   readonly reproduction: ReproductionMode;
   readonly selfingRate: number | undefined;
@@ -93,6 +95,7 @@ export class Population {
     this.ploidy = ploidy;
     this.loci = loci;
     this.mutationRate = mutationRate;
+    this.mutationSchedule = uniformSchedule(loci, mutationRate);
     this.mutation = mutation;
     this.reproduction = reproduction;
     this.selfingRate = selfingRate;
@@ -244,30 +247,6 @@ function sampleDistinct(rng: Rng, n: number, k: number): Int32Array {
     pool[j] = tmp;
   }
   return pool.subarray(0, k);
-}
-
-function crossoverRates(recombination: number | readonly number[], loci: number): Float64Array {
-  const rates = new Float64Array(loci);
-  if (typeof recombination === 'number') {
-    assertRecombination(recombination);
-    rates.fill(recombination, 1);
-    return rates;
-  }
-  if (recombination.length !== loci - 1) {
-    throw new RangeError(
-      `recombination needs ${loci - 1} interval rates, got ${recombination.length}`,
-    );
-  }
-  recombination.forEach((r, i) => {
-    assertRecombination(r);
-    rates[i + 1] = r;
-  });
-  return rates;
-}
-
-function assertRecombination(r: number): void {
-  if (!(r >= 0 && r <= 0.5))
-    throw new RangeError(`recombination rates must be in [0, 0.5], got ${r}`);
 }
 
 function assertProbability(name: string, p: number): void {

@@ -2,6 +2,7 @@ import type { Rng } from '../rng/index.ts';
 import type { FitnessModel } from './fitness.ts';
 import type { Population } from './population.ts';
 import { AliasSampler } from './sampling.ts';
+import { mutateCopy, recombineCopy } from './transmission.ts';
 
 export interface GenerationReport {
   /** Generation number after the step. */
@@ -51,7 +52,7 @@ export function stepGeneration(pop: Population, fitness: FitnessModel): Generati
     } else {
       const father = pickMate(pop, sampler, mother, rng);
       if (pop.ploidy === 1) {
-        recombine(
+        recombineCopy(
           src,
           pop.copyOffset(mother, 0),
           pop.copyOffset(father, 0),
@@ -62,7 +63,7 @@ export function stepGeneration(pop: Population, fitness: FitnessModel): Generati
           rng,
         );
       } else {
-        recombine(
+        recombineCopy(
           src,
           pop.copyOffset(mother, 0),
           pop.copyOffset(mother, 1),
@@ -72,7 +73,7 @@ export function stepGeneration(pop: Population, fitness: FitnessModel): Generati
           pop.crossover,
           rng,
         );
-        recombine(
+        recombineCopy(
           src,
           pop.copyOffset(father, 0),
           pop.copyOffset(father, 1),
@@ -127,42 +128,16 @@ function pickMate(pop: Population, sampler: AliasSampler, mother: number, rng: R
   return mother;
 }
 
-/**
- * Writes one recombinant genome copy built from source copies `a` and `b`: meiosis in a diploid
- * parent, or gamete fusion followed by immediate meiosis in a haploid life cycle.
- */
-function recombine(
-  src: Uint32Array,
-  a: number,
-  b: number,
-  dst: Uint32Array,
-  out: number,
-  loci: number,
-  crossover: Float64Array,
-  rng: Rng,
-): void {
-  let from = rng.float() < 0.5 ? a : b;
-  dst[out] = src[from];
-  for (let l = 1; l < loci; l++) {
-    const r = crossover[l];
-    if (r > 0 && rng.float() < r) from = from === a ? b : a;
-    dst[out + l] = src[from + l];
-  }
-}
-
-/** Applies mutations to one transmitted genome copy, skipping straight between mutated loci. */
+/** Applies mutations to one transmitted genome copy. */
 function mutate(pop: Population, genomes: Uint32Array, offset: number): number {
-  const mu = pop.mutationRate;
-  if (mu <= 0) return 0;
-  const rng = pop.rng.mutation;
-  const alleles = pop.alleles;
-  const birth = pop.generation + 1;
-  let count = 0;
-  for (let l = rng.geometric(mu); l < pop.loci; l += 1 + rng.geometric(mu)) {
-    const parent = genomes[offset + l];
-    const value = pop.mutation.mutate(alleles.value(parent), l, rng);
-    genomes[offset + l] = alleles.add(value, l, parent, birth);
-    count++;
-  }
-  return count;
+  return mutateCopy(
+    pop.alleles,
+    pop.mutation,
+    pop.mutationSchedule,
+    genomes,
+    offset,
+    pop.loci,
+    pop.rng.mutation,
+    pop.generation + 1,
+  );
 }

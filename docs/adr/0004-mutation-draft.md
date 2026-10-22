@@ -1,6 +1,7 @@
 # 0004. Player agency through the Mutation Draft
 
-**Status:** Accepted. Implementation in Phase 5.
+**Status:** Accepted. Implemented in Phase 5 and amended by
+[0006](0006-mutation-draft-calibration.md) (recurrent origins, major-effect offers, Pure mode).
 
 ## Context
 

@@ -14,8 +14,8 @@ Design pillar 2 from the [development plan](../PLAN.md): **every number has a so
 | 01  | [Population genetics](01-population-genetics.md)                                  | v0, needs review  | `packages/sim/src/genetics` | 1     |
 | 02  | [Key innovations timeline](02-innovations-timeline.md)                            | v0, dates checked | (content data, later)       | 0 → 7 |
 | 03  | [Plant physiology](03-plant-physiology.md) (light, photosynthesis, water, carbon) | v0, needs review  | `packages/sim/src/plant`    | 2     |
-| 04  | Life cycle and reproduction                                                       | Not started       |                             | 2     |
-| 05  | Spatial ecology                                                                   | Not started       |                             | 3     |
+| 04  | [Life cycle and reproduction](04-life-cycle.md)                                   | v0, needs review  | `packages/sim/src/world`    | 2     |
+| 05  | [Spatial ecology](05-spatial-ecology.md)                                          | v0, needs review  | `packages/sim/src/world`    | 3     |
 | 06  | Morphology (L-systems)                                                            | Not started       |                             | 4     |
 | 07  | Earth history: Ordovician–Devonian environments                                   | Not started       |                             | 5     |
 | 08  | Earth history: full Phanerozoic, feedbacks                                        | Not started       |                             | 6     |

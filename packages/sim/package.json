@@ -1,0 +1,13 @@
+{
+  "name": "@plant-evo/sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic, DOM-free simulation core for Plant-evo.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
